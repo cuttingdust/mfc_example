@@ -17,6 +17,16 @@
 #define IDB_PNG8                        137
 #define IDB_PNG9                        138
 #define IDB_PNG10                       139
+#define IDI_ICON1                       142
+#define IDI_ICON2                       144
+#define IDI_ICON3                       145
+#define IDI_ICON4                       146
+#define IDI_ICON5                       147
+#define IDI_ICON6                       148
+#define IDI_ICON7                       149
+#define IDI_ICON8                       150
+#define IDI_ICON9                       151
+#define IDI_ICON10                      152
 #define IDC_DIRPATH                     1000
 #define IDC_STEPTO                      1001
 #define IDC_DIRTREE                     1002
@@ -35,7 +45,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        140
+#define _APS_NEXT_RESOURCE_VALUE        153
 #define _APS_NEXT_COMMAND_VALUE         32771
 #define _APS_NEXT_CONTROL_VALUE         1014
 #define _APS_NEXT_SYMED_VALUE           101

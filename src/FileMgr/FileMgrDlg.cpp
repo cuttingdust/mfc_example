@@ -121,7 +121,7 @@ BOOL CFileMgrDlg::OnInitDialog()
     m_ctrlMoveTo.SubclassDlgItem(IDC_MOVETO, this);
     m_ctrlDelete.SubclassDlgItem(IDC_DELETE, this);
 
-    // m_ctrlOpenTo.LoadBitmaps(IDB_BITMAP9, IDB_BITMAP10);
+    // m_ctrlOpenTo.LoadBitmaps(IDB_BITMAP1, IDB_BITMAP2);
     // m_ctrlDelete.LoadBitmaps(IDB_BITMAP7, IDB_BITMAP8);
     // m_ctrlCopyTo.LoadBitmaps(IDB_BITMAP3, IDB_BITMAP4);
     // m_ctrlMoveTo.LoadBitmaps(IDB_BITMAP5, IDB_BITMAP6);
@@ -137,12 +137,12 @@ BOOL CFileMgrDlg::OnInitDialog()
 
     /// 初始化树形控件图标
     m_ctrlTreeImages.Create(16, 16, ILC_COLOR32, 9, 9);
-    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDB_PNG1)); /// 0  我的电脑
-    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDB_PNG2)); /// 1  文件夹
-    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDB_PNG3)); /// 2  光驱
-    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDB_PNG4)); /// 3  硬盘
-    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDB_PNG5)); /// 4  移动设备
-    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDB_PNG6)); /// 5  网络
+    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDI_ICON1)); /// 0  我的电脑
+    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDI_ICON2)); /// 1  文件夹
+    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDI_ICON3)); /// 2  光驱
+    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDI_ICON4)); /// 3  硬盘
+    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDI_ICON5)); /// 4  移动设备
+    m_ctrlTreeImages.Add(AfxGetApp()->LoadIcon(IDI_ICON6)); /// 5  网络
     m_ctrlDirTree.SetImageList(&m_ctrlTreeImages, TVSIL_NORMAL);
 
     /// 初始化树形控件根节点
@@ -155,15 +155,15 @@ BOOL CFileMgrDlg::OnInitDialog()
 
     /// 初始化列表控件图标
     m_ctrlListImages.Create(16, 16, ILC_COLOR32, 9, 9);
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG2));  /// 0  文件夹
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG7));  /// 1  文档
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG8));  /// 2  图片
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG9));  /// 3  视频
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG10)); /// 4 音频
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG3));  /// 5 光驱
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG4));  /// 6 硬盘
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG5));  /// 7 移动设备
-    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDB_PNG6));  /// 8 网络
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON2));  /// 0  文件夹
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON10)); /// 1  文档
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON7));  /// 2  图片
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON9));  /// 3  视频
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON8));  /// 4 音频
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON3));  /// 5 光驱
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON4));  /// 6 硬盘
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON5));  /// 7 移动设备
+    m_ctrlListImages.Add(AfxGetApp()->LoadIcon(IDI_ICON6));  /// 8 网络
     m_ctrlFileList.SetImageList(&m_ctrlListImages, LVSIL_SMALL);
 
     m_ctrlFileList.SetExtendedStyle(LVS_EX_FULLROWSELECT); /// 设置列表控件为整行选中模式
