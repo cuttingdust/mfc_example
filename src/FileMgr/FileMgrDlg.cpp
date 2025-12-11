@@ -79,6 +79,8 @@ BEGIN_MESSAGE_MAP(CFileMgrDlg, CDialogEx)
 ON_WM_SYSCOMMAND()
 ON_WM_PAINT()
 ON_WM_QUERYDRAGICON()
+ON_NOTIFY(TVN_SELCHANGED, IDC_DIRTREE, &CFileMgrDlg::OnTvnSelchangedDirtree)
+ON_NOTIFY(TVN_ITEMEXPANDING, IDC_DIRTREE, &CFileMgrDlg::OnTvnItemexpandingDirtree)
 END_MESSAGE_MAP()
 
 
@@ -382,4 +384,114 @@ BOOL CFileMgrDlg::UpdateItemDirs(HTREEITEM hItem)
     finder.Close();
 
     return TRUE;
+}
+
+BOOL CFileMgrDlg::UpdateListItem(CString strPath)
+{
+    int nItem = 0;
+
+    m_ctrlFileList.DeleteAllItems();
+    if (strPath.IsEmpty()) /// 为空表示是"我的电脑"的节点
+    {
+        /// 更新磁盘信息
+        wchar_t lpszPath[MAX_PATH] = { 0 };
+        ::GetLogicalDriveStrings(MAX_PATH, lpszPath);
+        for (wchar_t* ws = lpszPath; *ws; ws += wcslen(ws) + 1)
+        {
+            if (::GetDriveType(ws) != DRIVE_FIXED)
+                continue;
+
+            m_ctrlFileList.InsertItem(nItem, L"", 2);  /// 硬盘图标插入
+            m_ctrlFileList.SetItemText(nItem, 0, ws);  /// 卷标
+            m_ctrlFileList.SetItemText(nItem, 1, L""); /// 大小
+            m_ctrlFileList.SetItemText(nItem, 2, L"本地磁盘");
+            nItem++;
+        }
+    }
+    else
+    {
+        CFileFind finder;
+        if (strPath.Right(1) != "\\")
+            strPath += "\\";
+
+        for (BOOL bFind = finder.FindFile(strPath + "*.*"); bFind;)
+        {
+            bFind = finder.FindNextFile();
+            if (finder.IsDots())
+                continue;
+            if (finder.IsHidden() && !m_bHideFile)
+                continue;
+            if (finder.IsSystem() && !m_bSysFile)
+                continue;
+            BOOL bDir = finder.IsDirectory();
+            m_ctrlFileList.InsertItem(nItem, L"", bDir ? 0 : 1);
+            m_ctrlFileList.SetItemText(nItem, 0, finder.GetFileName());
+            m_ctrlFileList.SetItemText(nItem, 1, MakeSizeString(finder.GetLength()));
+            m_ctrlFileList.SetItemText(nItem, 2, bDir ? L"文件夹" : L"文件");
+            CTime tmFile;
+            finder.GetLastAccessTime(tmFile);
+            m_ctrlFileList.SetItemText(nItem, 3, tmFile.Format(L"%Y年%m月%d日%H:%M"));
+            nItem++;
+        }
+    }
+
+    CString strMsg;
+    strMsg.Format(L"共%d对象", nItem);
+    SetDlgItemText(IDC_MSGINFO, strMsg);
+
+    return TRUE;
+}
+
+CString CFileMgrDlg::MakeSizeString(DWORD dsSize)
+{
+    CString strSize = L"";
+    if (dsSize >= 1024 * 1024)
+    {
+        strSize.Format(L"%.1fMB", (float)dsSize / 1024 / 1024);
+    }
+    else if (dsSize > 0)
+    {
+        strSize.Format(L"%.1fKB", (float)dsSize / 1024);
+    }
+    return strSize;
+}
+
+void CFileMgrDlg::OnTvnSelchangedDirtree(NMHDR* pNMHDR, LRESULT* pResult)
+{
+    LPNMTREEVIEW pNMTreeView = reinterpret_cast<LPNMTREEVIEW>(pNMHDR);
+    // TODO: 在此添加控件通知处理程序代码
+    *pResult = 0;
+
+    UpdateData(TRUE);
+
+    m_hSelectItem = pNMTreeView->itemNew.hItem; /// 当前选中的节点
+    m_strCurrPath = GetItemPath(m_hSelectItem);
+    /// 更新列表控件
+    UpdateListItem(m_strCurrPath);
+
+    if (m_strCurrPath.IsEmpty())
+    {
+        m_ctrlDirPath.AddString(L"我的电脑");
+    }
+    else
+    {
+        m_ctrlDirPath.AddString(m_strCurrPath);
+    }
+
+    /// 选中该节点
+    m_ctrlDirPath.SetCurSel(m_ctrlDirPath.GetCount() - 1);
+    /// 展开该节点
+    m_ctrlDirTree.Expand(m_hSelectItem, TVE_EXPAND); /// 展开该选中的节点
+}
+
+void CFileMgrDlg::OnTvnItemexpandingDirtree(NMHDR* pNMHDR, LRESULT* pResult)
+{
+    LPNMTREEVIEW pNMTreeView = reinterpret_cast<LPNMTREEVIEW>(pNMHDR);
+    // TODO: 在此添加控件通知处理程序代码
+    *pResult = 0;
+
+    UpdateData(TRUE);
+    /// 需要展开的节点
+    HTREEITEM hItem = pNMTreeView->itemNew.hItem;
+    UpdateTreeItem(hItem);
 }

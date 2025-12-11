@@ -70,4 +70,10 @@ public:
     CString   m_strCurrFile;
     CString   m_strCurrPath;
     HTREEITEM m_hSelectItem; /// 选中的节点
+
+    BOOL UpdateListItem(CString strPath);
+
+    CString      MakeSizeString(DWORD dsSize);
+    afx_msg void OnTvnSelchangedDirtree(NMHDR* pNMHDR, LRESULT* pResult);
+    afx_msg void OnTvnItemexpandingDirtree(NMHDR* pNMHDR, LRESULT* pResult);
 };
