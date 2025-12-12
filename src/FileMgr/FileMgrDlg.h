@@ -71,7 +71,8 @@ public:
     CString   m_strCurrPath;
     HTREEITEM m_hSelectItem; /// 选中的节点
 
-    BOOL UpdateListItem(CString strPath);
+    BOOL      UpdateListItem(CString strPath);
+    ULONGLONG CalculateFolderSize(const CString& strFolderPath);
 
     CString      MakeSizeString(ULONGLONG dsSize);
     afx_msg void OnTvnSelchangedDirtree(NMHDR* pNMHDR, LRESULT* pResult);
@@ -86,4 +87,13 @@ public:
     HTREEITEM    FindTreeItemRecursive(HTREEITEM hParent, const CString& strPath);
     afx_msg void OnBnClickedHidefile();
     afx_msg void OnBnClickedSysfile();
+    afx_msg void OnBnClickedOpento();
+
+    BOOL         FileOperation(UINT nOpt, CString strDest, BOOL bUndo);
+    afx_msg void OnBnClickedCopyto();
+    afx_msg void OnBnClickedMoveto();
+    afx_msg void OnBnClickedDelete();
+    int          m_nDelOpt;
+    afx_msg void OnBnClickedDelopt();
+    afx_msg void OnBnClickedRadio2();
 };

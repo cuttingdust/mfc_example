@@ -53,7 +53,7 @@ END_MESSAGE_MAP()
 
 
 CFileMgrDlg::CFileMgrDlg(CWnd* pParent /*=nullptr*/) :
-    CDialogEx(IDD_FILEMGR_DIALOG, pParent), m_bHideFile(FALSE), m_bSysFile(FALSE)
+    CDialogEx(IDD_FILEMGR_DIALOG, pParent), m_bHideFile(FALSE), m_bSysFile(FALSE), m_nDelOpt(FALSE)
 {
     m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -67,6 +67,7 @@ void CFileMgrDlg::DoDataExchange(CDataExchange* pDX)
     DDX_Check(pDX, IDC_HIDEFILE, m_bHideFile);
     DDX_Check(pDX, IDC_SYSFILE, m_bSysFile);
     DDX_Control(pDX, IDC_DELOPT, m_nDelete);
+    DDX_Radio(pDX, IDC_DELOPT, m_nDelOpt);
 }
 
 BOOL CFileMgrDlg::PreTranslateMessage(MSG* pMsg)
@@ -87,6 +88,12 @@ ON_BN_CLICKED(IDC_STEPTO, &CFileMgrDlg::OnBnClickedStepto)
 ON_CBN_SELCHANGE(IDC_DIRPATH, &CFileMgrDlg::OnCbnSelchangeDirpath)
 ON_BN_CLICKED(IDC_HIDEFILE, &CFileMgrDlg::OnBnClickedHidefile)
 ON_BN_CLICKED(IDC_SYSFILE, &CFileMgrDlg::OnBnClickedSysfile)
+ON_BN_CLICKED(IDC_OPENTO, &CFileMgrDlg::OnBnClickedOpento)
+ON_BN_CLICKED(IDC_COPYTO, &CFileMgrDlg::OnBnClickedCopyto)
+ON_BN_CLICKED(IDC_MOVETO, &CFileMgrDlg::OnBnClickedMoveto)
+ON_BN_CLICKED(IDC_DELETE, &CFileMgrDlg::OnBnClickedDelete)
+ON_BN_CLICKED(IDC_DELOPT, &CFileMgrDlg::OnBnClickedDelopt)
+ON_BN_CLICKED(IDC_RADIO2, &CFileMgrDlg::OnBnClickedRadio2)
 END_MESSAGE_MAP()
 
 
@@ -179,6 +186,8 @@ BOOL CFileMgrDlg::OnInitDialog()
     m_ctrlFileList.InsertColumn(1, L"大小", LVCFMT_LEFT, 200);
     m_ctrlFileList.InsertColumn(2, L"类型", LVCFMT_CENTER, 60);
     m_ctrlFileList.InsertColumn(3, L"修改日期", LVCFMT_RIGHT, 60);
+
+    UpdateData(FALSE); /// 将变量值更新到界面控
 
     return TRUE; // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -521,8 +530,8 @@ BOOL CFileMgrDlg::UpdateListItem(CString strPath)
             CString strExt      = finder.GetFileName().Mid(strFileName.ReverseFind('.') + 1).MakeLower();
 
             /// 动态确定图标索引
-            int nIconIndex = 1; /// 默认文档图标
-
+            int       nIconIndex = 1; /// 默认文档图标
+            ULONGLONG ullSize    = 0; // 大小变量
             if (bDir)
             {
                 nIconIndex = 0; /// 文件夹图标
@@ -542,7 +551,7 @@ BOOL CFileMgrDlg::UpdateListItem(CString strPath)
 
             m_ctrlFileList.InsertItem(nItem, L"", nIconIndex); /// 使用动态图标索引
             m_ctrlFileList.SetItemText(nItem, 0, strFileName);
-            m_ctrlFileList.SetItemText(nItem, 1, MakeSizeString(bDir ? 0 : finder.GetLength()));
+            m_ctrlFileList.SetItemText(nItem, 1, MakeSizeString(bDir ? 0 : finder.GetLength())); /// 计算文件夹太慢
             m_ctrlFileList.SetItemText(nItem, 2, bDir ? L"文件夹" : L"文件");
 
             CTime tmFile;
@@ -558,6 +567,44 @@ BOOL CFileMgrDlg::UpdateListItem(CString strPath)
 
     return TRUE;
 }
+
+ULONGLONG CFileMgrDlg::CalculateFolderSize(const CString& strFolderPath)
+{
+    ULONGLONG ullTotalSize = 0;
+    CFileFind finder;
+    CString   strPath = strFolderPath;
+
+    if (strPath.Right(1) != L"\\")
+        strPath += L"\\";
+
+    // 查找所有文件和子文件夹
+    BOOL bWorking = finder.FindFile(strPath + L"*.*");
+    while (bWorking)
+    {
+        bWorking = finder.FindNextFile();
+
+        // 跳过 "." 和 ".."
+        if (finder.IsDots())
+            continue;
+
+        CString strFilePath = finder.GetFilePath();
+
+        if (finder.IsDirectory())
+        {
+            // 递归计算子文件夹大小
+            ullTotalSize += CalculateFolderSize(strFilePath);
+        }
+        else
+        {
+            // 累加文件大小
+            ullTotalSize += finder.GetLength();
+        }
+    }
+    finder.Close();
+
+    return ullTotalSize;
+}
+
 
 CString CFileMgrDlg::MakeSizeString(ULONGLONG ullSize) // 改为64位参数
 {
@@ -832,4 +879,260 @@ void CFileMgrDlg::OnBnClickedSysfile()
     m_ctrlDirTree.SelectItem(m_hSelectItem);
     m_ctrlDirTree.Expand(m_hSelectItem, TVE_EXPAND);
     UpdateListItem(GetItemPath(m_hSelectItem));
+}
+
+void CFileMgrDlg::OnBnClickedOpento()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    if (m_strCurrFile.IsEmpty())
+    {
+        return;
+    }
+
+    ::ShellExecute(NULL, L"open", m_strCurrFile, L"", L"", SW_SHOWNORMAL);
+}
+
+BOOL CFileMgrDlg::FileOperation(UINT nOpt, CString strDest, BOOL bUndo)
+{
+    // 为源路径分配足够空间（MAX_PATH + 2个额外空字符）
+    wchar_t lpszFromPath[MAX_PATH + 2] = { 0 };
+
+    // ✅ 关键修复1：确保路径是完整路径
+    wchar_t szFullPath[MAX_PATH] = { 0 };
+    if (::GetFullPathName(m_strCurrFile, MAX_PATH, szFullPath, NULL) > 0)
+    {
+        ::lstrcpy(lpszFromPath, szFullPath);
+        TRACE(_T("【FileOperation】完整路径: %s\n"), szFullPath);
+    }
+    else
+    {
+        ::lstrcpy(lpszFromPath, m_strCurrFile);
+        TRACE(_T("【FileOperation】使用原路径: %s\n"), m_strCurrFile);
+    }
+
+    // ✅ 关键修复2：确保双空字符结尾
+    int nLen = ::lstrlen(lpszFromPath);
+    if (nLen > 0 && nLen < MAX_PATH)
+    {
+        lpszFromPath[nLen + 1] = L'\0'; // 第二个空字符
+    }
+    else
+    {
+        TRACE(_T("【FileOperation】错误：路径长度异常 nLen=%d\n"), nLen);
+        return FALSE;
+    }
+
+    // 处理目标路径（如果是删除操作，strDest可能为空）
+    wchar_t lpszToPath[MAX_PATH + 2] = { 0 };
+    if (!strDest.IsEmpty())
+    {
+        // 确保目标路径也是完整路径
+        if (::GetFullPathName(strDest, MAX_PATH, szFullPath, NULL) > 0)
+        {
+            ::lstrcpy(lpszToPath, szFullPath);
+        }
+        else
+        {
+            ::lstrcpy(lpszToPath, strDest);
+        }
+
+        // 确保目标路径双空字符结尾
+        nLen = ::lstrlen(lpszToPath);
+        if (nLen > 0 && nLen < MAX_PATH)
+        {
+            lpszToPath[nLen + 1] = L'\0';
+        }
+    }
+
+    SHFILEOPSTRUCT fo;
+    ::ZeroMemory(&fo, sizeof(fo));
+    fo.hwnd  = m_hWnd;
+    fo.wFunc = nOpt;
+    fo.pFrom = lpszFromPath; // 源路径（已确保双空字符结尾）
+    fo.pTo   = lpszToPath;   // 目标路径（已确保双空字符结尾）
+
+    // ✅ 关键修复3：根据操作类型设置正确的标志
+    fo.fFlags = FOF_SIMPLEPROGRESS | FOF_NOCONFIRMATION | FOF_NOERRORUI;
+
+    // 根据删除模式设置是否允许撤销（到回收站）
+    if (bUndo && nOpt == FO_DELETE)
+    {
+        fo.fFlags |= FOF_ALLOWUNDO;
+        TRACE(_T("【FileOperation】设置 FOF_ALLOWUNDO 标志（到回收站）\n"));
+    }
+    else if (!bUndo && nOpt == FO_DELETE)
+    {
+        // 彻底删除时不设置 FOF_ALLOWUNDO
+        fo.fFlags |= FOF_NOCONFIRMATION;
+        TRACE(_T("【FileOperation】彻底删除，不设置 FOF_ALLOWUNDO\n"));
+    }
+
+    // 进度条标题
+    if (!strDest.IsEmpty())
+        fo.lpszProgressTitle = strDest;
+
+    // 执行操作
+    TRACE(_T("【FileOperation】调用 SHFileOperation，操作类型: %d\n"), nOpt);
+    int nResult = ::SHFileOperation(&fo);
+
+    // 检查结果
+    if (nResult != 0)
+    {
+        TRACE(_T("【FileOperation】SHFileOperation 失败，错误代码: %d\n"), nResult);
+
+        // 尝试解释错误代码
+        switch (nResult)
+        {
+            case 2:
+                TRACE(_T("  错误：文件未找到\n"));
+                break;
+            case 3:
+                TRACE(_T("  错误：路径未找到\n"));
+                break;
+            case 5:
+                TRACE(_T("  错误：访问被拒绝\n"));
+                break;
+            case 32:
+                TRACE(_T("  错误：文件正在被使用\n"));
+                break;
+            default:
+                TRACE(_T("  未知错误\n"));
+                break;
+        }
+
+        return FALSE;
+    }
+
+    // 检查是否用户取消
+    if (fo.fAnyOperationsAborted)
+    {
+        TRACE(_T("【FileOperation】用户取消了操作\n"));
+        return FALSE;
+    }
+
+    TRACE(_T("【FileOperation】操作成功完成\n"));
+    return TRUE; // 成功
+}
+
+void CFileMgrDlg::OnBnClickedCopyto()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    if (m_strCurrFile.IsEmpty())
+        return;
+
+    int nLen = m_strCurrFile.GetLength();
+    int nPos = m_strCurrFile.ReverseFind(L'\\');
+
+    CFileDialog dlg(FALSE, NULL, m_strCurrFile.Right(nLen - nPos - 1));
+    if (dlg.DoModal() != IDOK)
+        return;
+    FileOperation(FO_COPY, dlg.GetPathName(), TRUE);
+}
+
+void CFileMgrDlg::OnBnClickedMoveto()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    // TODO: 在此添加控件通知处理程序代码
+    if (m_strCurrFile.IsEmpty())
+        return;
+
+    int nLen = m_strCurrFile.GetLength();
+    int nPos = m_strCurrFile.ReverseFind(L'\\');
+
+    CFileDialog dlg(FALSE, NULL, m_strCurrFile.Right(nLen - nPos - 1));
+    if (dlg.DoModal() != IDOK)
+        return;
+
+    // 保存移动前的当前路径，用于后续刷新
+    CString strCurrentPathBeforeMove = m_strCurrPath;
+
+    // 执行移动操作
+    if (FileOperation(FO_MOVE, dlg.GetPathName(), TRUE))
+    {
+        // ✅ 移动成功，刷新界面
+        // 1. 刷新文件列表 (显示当前目录的最新内容)
+        UpdateListItem(strCurrentPathBeforeMove);
+
+        // 2. 刷新树形控件对应节点的子项
+        UpdateTreeItem(m_hSelectItem);
+
+        // 3. 清空当前选中的文件，避免对已移动文件误操作
+        m_strCurrFile.Empty();
+
+        TRACE(_T("【OnBnClickedMoveto】文件已移动，界面已刷新\n"));
+    }
+}
+
+void CFileMgrDlg::OnBnClickedDelete()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    UpdateData(TRUE);
+    if (m_strCurrFile.IsEmpty())
+        return;
+
+    // 根据删除模式准备不同的提示
+    CString strPrompt, strTitle;
+    if (m_nDelOpt == 0) // 到回收站
+    {
+        strPrompt.Format(L"是否将文件 \"%s\" 移动到回收站？", m_strCurrFile);
+        strTitle = L"移动到回收站";
+    }
+    else // 彻底删除
+    {
+        strPrompt.Format(L"是否彻底删除文件 \"%s\"？\n此操作不可恢复！", m_strCurrFile);
+        strTitle = L"彻底删除警告";
+    }
+
+    // 显示确认对话框
+    if (MessageBox(strPrompt, strTitle, MB_YESNO | (m_nDelOpt == 0 ? MB_ICONQUESTION : MB_ICONWARNING)) != IDYES)
+    {
+        return; // 用户取消
+    }
+
+    // 执行删除操作
+    if (FileOperation(FO_DELETE, L"", m_nDelOpt == 0))
+    {
+        // ✅ 删除成功后刷新界面
+        UpdateListItem(m_strCurrPath);
+        UpdateTreeItem(m_hSelectItem);
+
+        // ✅ 清空当前选中的文件
+        m_strCurrFile.Empty();
+
+        // 显示操作完成提示
+        CString strMsg;
+        if (m_nDelOpt == 0)
+            strMsg.Format(L"文件已移动到回收站");
+        else
+            strMsg.Format(L"文件已彻底删除");
+        SetDlgItemText(IDC_MSGINFO, strMsg);
+
+        TRACE(_T("【OnBnClickedDelete】文件已删除，界面已刷新\n"));
+    }
+    else
+    {
+        MessageBox(L"删除操作失败，请检查文件是否被占用或权限不足。", L"操作失败", MB_ICONERROR);
+    }
+}
+
+void CFileMgrDlg::OnBnClickedDelopt()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    // UpdateData(TRUE); // 更新数据到变量
+    TRACE(_T("选择：到回收站，m_nDelOpt=%d\n"), m_nDelOpt);
+    /// 此时 m_nDelOpt 应该为 0（到回收站）
+    CString strMsg;
+    strMsg.Format(L"删除模式：移动到回收站");
+    SetDlgItemText(IDC_MSGINFO, strMsg);
+}
+
+void CFileMgrDlg::OnBnClickedRadio2()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    UpdateData(TRUE); // 更新数据到变量
+
+    // 此时 m_nDelOpt 应该为 1（彻底删除）
+    CString strMsg;
+    strMsg.Format(L"删除模式：彻底删除");
+    SetDlgItemText(IDC_MSGINFO, strMsg);
 }
