@@ -73,7 +73,17 @@ public:
 
     BOOL UpdateListItem(CString strPath);
 
-    CString      MakeSizeString(DWORD dsSize);
+    CString      MakeSizeString(ULONGLONG dsSize);
     afx_msg void OnTvnSelchangedDirtree(NMHDR* pNMHDR, LRESULT* pResult);
     afx_msg void OnTvnItemexpandingDirtree(NMHDR* pNMHDR, LRESULT* pResult);
+    afx_msg void OnNMClickFilelist(NMHDR* pNMHDR, LRESULT* pResult);
+    afx_msg void OnNMDblclkFilelist(NMHDR* pNMHDR, LRESULT* pResult);
+
+    HANDLE       GetNameItem(CString strName);
+    afx_msg void OnBnClickedStepto();
+    afx_msg void OnCbnSelchangeDirpath();
+    HTREEITEM    FindTreeItemByPath(const CString& strPath);
+    HTREEITEM    FindTreeItemRecursive(HTREEITEM hParent, const CString& strPath);
+    afx_msg void OnBnClickedHidefile();
+    afx_msg void OnBnClickedSysfile();
 };
