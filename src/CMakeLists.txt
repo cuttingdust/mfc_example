@@ -67,6 +67,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CommonTools)
 
 add_subdirectory(FileMgr)
+add_subdirectory(ScreenCapture)
 
 # 拷贝assert目录到输出目录
 set(ASSERT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/assert)
