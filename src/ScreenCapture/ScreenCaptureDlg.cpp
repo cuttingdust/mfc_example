@@ -52,6 +52,126 @@ END_MESSAGE_MAP()
 // CScreenCaptureDlg 对话框
 
 
+// 在文件开头添加以下静态成员初始化
+BOOL  CScreenCaptureDlg::m_bHotkeyRegistered = FALSE;
+UINT  CScreenCaptureDlg::m_nHotkeyId         = 0;
+HHOOK CScreenCaptureDlg::m_hKeyboardHook     = NULL;
+HWND  CScreenCaptureDlg::m_hWndInstance      = NULL;
+// 在类实现中添加键盘钩子函数
+LRESULT CALLBACK CScreenCaptureDlg::KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode >= 0)
+    {
+        KBDLLHOOKSTRUCT* pKbStruct = (KBDLLHOOKSTRUCT*)lParam;
+
+        // 检测 F1 键按下
+        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
+        {
+            if (pKbStruct->vkCode == VK_F1)
+            {
+                // ✅ 修复：发送到特定的窗口句柄，而不是 NULL
+                if (m_hWndInstance != NULL)
+                {
+                    ::PostMessage(m_hWndInstance, WM_HOTKEY, pKbStruct->vkCode, MAKELPARAM(0, pKbStruct->vkCode));
+                }
+                return 1; // 阻止默认处理
+            }
+        }
+    }
+    return CallNextHookEx(m_hKeyboardHook, nCode, wParam, lParam);
+}
+
+void CScreenCaptureDlg::CreateTrayIcon()
+{
+    ZeroMemory(&m_nid, sizeof(NOTIFYICONDATA));
+    m_nid.cbSize           = sizeof(NOTIFYICONDATA);
+    m_nid.hWnd             = GetSafeHwnd();
+    m_nid.uID              = 1;
+    m_nid.uFlags           = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    m_nid.uCallbackMessage = WM_USER + 100; // 自定义消息
+    m_nid.hIcon            = m_hIcon;
+    wcscpy_s(m_nid.szTip, L"屏幕截图工具\n快捷键: F1\nESC: 取消");
+
+    ::Shell_NotifyIcon(NIM_ADD, &m_nid);
+}
+
+void CScreenCaptureDlg::RemoveTrayIcon()
+{
+    Shell_NotifyIcon(NIM_DELETE, &m_nid);
+}
+
+// 处理托盘消息
+LRESULT CScreenCaptureDlg::OnTrayIcon(WPARAM wParam, LPARAM lParam)
+{
+    UINT uMouseMsg = (UINT)lParam;
+
+    switch (uMouseMsg)
+    {
+        case WM_RBUTTONUP:
+            {
+                // 显示右键菜单
+                CMenu menu;
+                menu.LoadMenu(IDR_TRAY_MENU);
+                CMenu* pSubMenu = menu.GetSubMenu(0);
+
+                CPoint point;
+                GetCursorPos(&point);
+
+                SetForegroundWindow();
+                pSubMenu->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point.x, point.y, this);
+
+                // 必须发送这个消息，否则菜单不会消失
+                PostMessage(WM_NULL, 0, 0);
+            }
+            break;
+
+        case WM_LBUTTONDBLCLK:
+            // 双击显示窗口
+            ShowWindow(SW_SHOW);
+            SetForegroundWindow();
+            break;
+
+        case WM_LBUTTONUP:
+            // 单击开始截图（直接全屏截图）
+            ShowWindow(SW_SHOW);
+            SetForegroundWindow();
+            // 或者直接开始截图流程
+            // StartCapture();
+            break;
+    }
+
+    return 0;
+}
+
+// 托盘菜单命令处理函数
+void CScreenCaptureDlg::OnTrayCapture()
+{
+    ShowWindow(SW_SHOW);
+    SetForegroundWindow();
+}
+
+void CScreenCaptureDlg::OnTraySettings()
+{
+    // 这里可以打开设置对话框
+    MessageBox(L"设置功能暂未实现", L"提示", MB_OK | MB_ICONINFORMATION);
+}
+
+void CScreenCaptureDlg::OnTrayAbout()
+{
+    CAboutDlg dlgAbout;
+    dlgAbout.DoModal();
+}
+
+void CScreenCaptureDlg::OnTrayExit()
+{
+    // 移除托盘图标
+    RemoveTrayIcon();
+
+    // 退出程序
+    CDialogEx::OnOK();
+}
+
+// 修改构造函数
 CScreenCaptureDlg::CScreenCaptureDlg(CWnd* pParent /*=nullptr*/) :
     CDialogEx(IDD_SCREENCAPTURE_DIALOG, pParent), m_bCapturing(FALSE), m_bMouseDown(FALSE)
 {
@@ -71,8 +191,18 @@ ON_WM_LBUTTONDOWN()
 ON_WM_MOUSEMOVE()
 ON_WM_LBUTTONUP()
 ON_WM_ERASEBKGND()
-END_MESSAGE_MAP()
+ON_WM_DESTROY()
+ON_WM_HOTKEY()
+ON_WM_KEYDOWN()
+ON_WM_CREATE()                        // ✅ 添加这一行
+ON_MESSAGE(WM_USER + 100, OnTrayIcon) // 托盘消息
 
+// ✅ 修改这里的命令ID
+ON_COMMAND(ID_TRAY_CAPTURE, OnTrayCapture)
+ON_COMMAND(ID_TRAY_SETTINGS, OnTraySettings)
+ON_COMMAND(ID_TRAY_ABOUT, OnTrayAbout)
+ON_COMMAND(ID_TRAY_EXIT, OnTrayExit)
+END_MESSAGE_MAP()
 
 // CScreenCaptureDlg 消息处理程序
 
@@ -105,9 +235,6 @@ BOOL CScreenCaptureDlg::OnInitDialog()
     SetIcon(m_hIcon, TRUE);  // 设置大图标
     SetIcon(m_hIcon, FALSE); // 设置小图标
 
-    /// 设置为全屏无边框窗口
-    int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 
     /// 移除标题栏和边框
     long lStyle = ::GetWindowLongPtr(GetSafeHwnd(), GWL_STYLE);
@@ -136,8 +263,97 @@ BOOL CScreenCaptureDlg::OnInitDialog()
     m_ptStart = CPoint(0, 0);
     m_ptEnd   = CPoint(0, 0);
 
+    // ✅ 2. 注册热键
+    if (!m_bHotkeyRegistered)
+    {
+        if (RegisterHotKey(GetSafeHwnd(), 112, MOD_NOREPEAT, VK_F1))
+        {
+            m_bHotkeyRegistered = TRUE;
+            m_nHotkeyId         = 112;
+        }
+
+        // 设置键盘钩子
+        m_hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHookProc, GetModuleHandle(NULL), 0);
+    }
+
+    // ✅ 3. 创建托盘图标
+    CreateTrayIcon();
+
+    m_hWndInstance = GetSafeHwnd();
 
     return TRUE; // 除非将焦点设置到控件，否则返回 TRUE
+}
+
+BOOL CScreenCaptureDlg::PreCreateWindow(CREATESTRUCT& cs)
+{
+    // 在窗口创建前就设置为不可见
+    cs.style &= ~WS_VISIBLE;
+    return CDialogEx::PreCreateWindow(cs);
+}
+
+int CScreenCaptureDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+    if (CDialogEx::OnCreate(lpCreateStruct) == -1)
+        return -1;
+
+    // 确保窗口创建后就是隐藏的
+    ShowWindow(SW_HIDE);
+    return 0;
+}
+
+// 添加销毁处理
+void CScreenCaptureDlg::OnDestroy()
+{
+    // 注销热键
+    if (m_bHotkeyRegistered && m_nHotkeyId != 0)
+    {
+        UnregisterHotKey(GetSafeHwnd(), m_nHotkeyId);
+        m_bHotkeyRegistered = FALSE;
+        m_nHotkeyId         = 0;
+    }
+
+    // 移除键盘钩子
+    if (m_hKeyboardHook)
+    {
+        UnhookWindowsHookEx(m_hKeyboardHook);
+        m_hKeyboardHook = NULL;
+    }
+
+    RemoveTrayIcon();
+    CDialogEx::OnDestroy();
+}
+
+// 处理热键消息
+void CScreenCaptureDlg::OnHotKey(UINT nHotKeyId, UINT nKey1, UINT nKey2)
+{
+    if (nHotKeyId == m_nHotkeyId)
+    {
+        // 显示窗口（如果已隐藏）
+        if (!IsWindowVisible())
+        {
+            ShowWindow(SW_SHOW);
+            SetForegroundWindow();
+            SetActiveWindow();
+        }
+    }
+
+    CDialogEx::OnHotKey(nHotKeyId, nKey1, nKey2);
+}
+
+// 处理键盘按下事件（支持ESC取消）
+void CScreenCaptureDlg::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+    // ESC键取消截图
+    if (nChar == VK_ESCAPE)
+    {
+        OnCancel();
+    }
+    else if (nChar == VK_RETURN && !m_rcSelection.IsRectEmpty())
+    {
+        CaptureSelection();
+    }
+
+    CDialogEx::OnKeyDown(nChar, nRepCnt, nFlags);
 }
 
 void CScreenCaptureDlg::OnSysCommand(UINT nID, LPARAM lParam)
@@ -385,6 +601,12 @@ void CScreenCaptureDlg::CaptureSelection()
     CString strMessage;
     strMessage.Format(L"截图成功！\n尺寸: %d × %d 像素\n已复制到剪贴板", rcScreen.Width(), rcScreen.Height());
     MessageBox(strMessage, L"截图完成", MB_OK | MB_ICONINFORMATION);
+
+    // ✅ 修改2：播放提示音让用户知道截图完成
+    // MessageBeep(MB_ICONINFORMATION);
+
+    // ✅ 修改3：隐藏窗口，等待下次F1
+    ShowWindow(SW_HIDE);
 
     m_rcSelection.SetRectEmpty();
     Invalidate(FALSE);
