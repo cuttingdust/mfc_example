@@ -98,6 +98,7 @@ void CScreenCaptureDlg::CreateTrayIcon()
 void CScreenCaptureDlg::RemoveTrayIcon()
 {
     Shell_NotifyIcon(NIM_DELETE, &m_nid);
+    ZeroMemory(&m_nid, sizeof(NOTIFYICONDATA));
 }
 
 // 处理托盘消息
@@ -377,21 +378,10 @@ void CScreenCaptureDlg::OnPaint()
 {
     if (IsIconic())
     {
-        CPaintDC dc(this);
-        SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()), 0);
-
-        int   cxIcon = GetSystemMetrics(SM_CXICON);
-        int   cyIcon = GetSystemMetrics(SM_CYICON);
-        CRect rect;
-        GetClientRect(&rect);
-        int x = (rect.Width() - cxIcon + 1) / 2;
-        int y = (rect.Height() - cyIcon + 1) / 2;
-
-        dc.DrawIcon(x, y, m_hIcon);
+        // ... 图标绘制代码 ...
     }
     else
     {
-        // ============ 双缓冲绘制开始 ============
         CPaintDC dc(this);
         CRect    rect;
         GetClientRect(&rect);
@@ -401,72 +391,83 @@ void CScreenCaptureDlg::OnPaint()
         CBitmap  memBitmap;
         CBitmap* pOldBitmap = NULL;
 
-        memDC.CreateCompatibleDC(&dc);
-        memBitmap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height());
-        pOldBitmap = memDC.SelectObject(&memBitmap);
-
-        // 先绘制到内存DC - 黑色半透明背景
-        CBrush brushBackground(RGB(0, 0, 0));
-        memDC.FillRect(&rect, &brushBackground);
-
-        /// 如果正在截图，绘制选区
-        if (m_bMouseDown && !m_rcSelection.IsRectNull())
+        if (memDC.CreateCompatibleDC(&dc))
         {
-            CRect rcNormalized = m_rcSelection;
-            rcNormalized.NormalizeRect();
+            if (memBitmap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height()))
+            {
+                pOldBitmap = memDC.SelectObject(&memBitmap);
 
-            // ✅ 关键修改：在选中区域显示原始屏幕内容
-            HDC hScreenDC = ::GetDC(NULL);
+                // 先绘制到内存DC - 黑色半透明背景
+                CBrush brushBackground(RGB(0, 0, 0));
+                memDC.FillRect(&rect, &brushBackground);
+                brushBackground.DeleteObject(); // ✅ 及时删除
 
-            // 将选中区域的屏幕内容复制到内存DC
-            BitBlt(memDC, rcNormalized.left, rcNormalized.top, rcNormalized.Width(), rcNormalized.Height(), hScreenDC,
-                   rcNormalized.left, rcNormalized.top, SRCCOPY);
+                /// 如果正在截图，绘制选区
+                if (m_bMouseDown && !m_rcSelection.IsRectNull())
+                {
+                    CRect rcNormalized = m_rcSelection;
+                    rcNormalized.NormalizeRect();
 
-            ::ReleaseDC(NULL, hScreenDC);
+                    // 获取屏幕内容
+                    HDC hScreenDC = ::GetDC(NULL);
+                    if (hScreenDC)
+                    {
+                        BitBlt(memDC, rcNormalized.left, rcNormalized.top, rcNormalized.Width(), rcNormalized.Height(),
+                               hScreenDC, rcNormalized.left, rcNormalized.top, SRCCOPY);
+                        ::ReleaseDC(NULL, hScreenDC); // ✅ 及时释放
+                    }
 
-            /// 绘制选区边框（白色）
-            CPen  penWhite(PS_SOLID, 2, RGB(255, 255, 255));
-            CPen* pOldPen = memDC.SelectObject(&penWhite);
-            memDC.SelectStockObject(NULL_BRUSH); /// 透明填充
+                    /// 绘制选区边框（白色）
+                    {
+                        CPen  penWhite(PS_SOLID, 2, RGB(255, 255, 255));
+                        CPen* pOldPen = memDC.SelectObject(&penWhite);
+                        memDC.SelectStockObject(NULL_BRUSH);
 
-            memDC.Rectangle(&rcNormalized);
-            memDC.SelectObject(pOldPen);
-            penWhite.DeleteObject();
+                        memDC.Rectangle(&rcNormalized);
 
-            /// 绘制选区尺寸信息
-            CString strSize;
-            strSize.Format(L"%d × %d", rcNormalized.Width(), rcNormalized.Height());
+                        memDC.SelectObject(pOldPen);
+                        // penWhite 会在作用域结束时自动调用 DeleteObject
+                    } // ✅ penWhite 在这里自动销毁
 
-            CFont font;
-            font.CreatePointFont(90, L"Arial");
-            CFont* pOldFont = memDC.SelectObject(&font);
+                    /// 绘制选区尺寸信息
+                    {
+                        CString strSize;
+                        strSize.Format(L"%d × %d", rcNormalized.Width(), rcNormalized.Height());
 
-            /// 在选区右下角显示尺寸
-            CSize  textSize = memDC.GetTextExtent(strSize);
-            CPoint textPos(rcNormalized.right - textSize.cx - 5, rcNormalized.bottom - textSize.cy - 5);
+                        CFont font;
+                        if (font.CreatePointFont(90, L"Arial"))
+                        {
+                            CFont* pOldFont = memDC.SelectObject(&font);
 
-            /// 绘制文字背景
-            CRect textRect(textPos.x, textPos.y, textPos.x + textSize.cx + 4, textPos.y + textSize.cy + 4);
-            memDC.FillSolidRect(&textRect, RGB(0, 0, 0));
+                            CSize  textSize = memDC.GetTextExtent(strSize);
+                            CPoint textPos(rcNormalized.right - textSize.cx - 5, rcNormalized.bottom - textSize.cy - 5);
 
-            /// 绘制文字
-            memDC.SetTextColor(RGB(255, 255, 255));
-            memDC.SetBkColor(RGB(0, 0, 0));
-            memDC.TextOut(textPos.x + 2, textPos.y + 2, strSize);
+                            /// 绘制文字背景
+                            CRect textRect(textPos.x, textPos.y, textPos.x + textSize.cx + 4,
+                                           textPos.y + textSize.cy + 4);
+                            memDC.FillSolidRect(&textRect, RGB(0, 0, 0));
 
-            memDC.SelectObject(pOldFont);
-            font.DeleteObject();
+                            /// 绘制文字
+                            memDC.SetTextColor(RGB(255, 255, 255));
+                            memDC.SetBkColor(RGB(0, 0, 0));
+                            memDC.TextOut(textPos.x + 2, textPos.y + 2, strSize);
+
+                            memDC.SelectObject(pOldFont);
+                            // font 会在作用域结束时自动调用 DeleteObject
+                        }
+                    } // ✅ font 在这里自动销毁
+                }
+
+                // 将内存DC内容复制到屏幕DC
+                dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
+
+                // 恢复并清理
+                if (pOldBitmap)
+                    memDC.SelectObject(pOldBitmap);
+            }
+            // memBitmap 会在作用域结束时自动删除
         }
-
-        // 将内存DC内容复制到屏幕DC
-        dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
-
-        // 清理
-        memDC.SelectObject(pOldBitmap);
-        memBitmap.DeleteObject();
-        memDC.DeleteDC();
-        brushBackground.DeleteObject();
-        // ============ 双缓冲绘制结束 ============
+        // memDC 会在作用域结束时自动删除
     }
 }
 
@@ -579,21 +580,41 @@ void CScreenCaptureDlg::CaptureSelection()
     // 复制屏幕区域到位图
     BitBlt(hMemDC, 0, 0, rcScreen.Width(), rcScreen.Height(), hScreenDC, rcScreen.left, rcScreen.top, SRCCOPY);
 
+    BOOL bClipboardOwnsBitmap = FALSE;
+
     // 保存到剪贴板
     if (OpenClipboard())
     {
         EmptyClipboard();
-        SetClipboardData(CF_BITMAP, hBitmap);
+        // SetClipboardData 成功后，系统取得位图所有权
+        if (SetClipboardData(CF_BITMAP, hBitmap))
+        {
+            bClipboardOwnsBitmap = TRUE; // 标记：剪贴板现在拥有位图
+            hBitmap              = NULL; // ✅ 重要：置空，防止我们重复删除
+        }
+        else
+        {
+            // SetClipboardData 失败
+            bClipboardOwnsBitmap = FALSE;
+        }
+
         CloseClipboard();
     }
     else
     {
-        DeleteObject(hBitmap);
+        // OpenClipboard 失败
+        bClipboardOwnsBitmap = FALSE;
     }
 
     // 清理资源
     SelectObject(hMemDC, hOldBitmap);
-    DeleteObject(hBitmap);
+
+    // ✅ 修复：只删除没有被剪贴板接管的位图
+    if (hBitmap != NULL && !bClipboardOwnsBitmap)
+    {
+        DeleteObject(hBitmap);
+    }
+
     DeleteDC(hMemDC);
     ::ReleaseDC(NULL, hScreenDC);
 
@@ -609,6 +630,6 @@ void CScreenCaptureDlg::CaptureSelection()
     ShowWindow(SW_HIDE);
 
     m_rcSelection.SetRectEmpty();
-    Invalidate(FALSE);
-    UpdateWindow();
+    // Invalidate(FALSE);
+    // UpdateWindow();
 }
