@@ -1,0 +1,86 @@
+﻿
+// ServMgrView.cpp: CServMgrView 类的实现
+//
+
+#include "pch.h"
+#include "framework.h"
+// SHARED_HANDLERS 可以在实现预览、缩略图和搜索筛选器句柄的
+// ATL 项目中进行定义，并允许与该项目共享文档代码。
+#ifndef SHARED_HANDLERS
+#include "ServMgr.h"
+#endif
+
+#include "ServMgrDoc.h"
+#include "ServMgrView.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+
+// CServMgrView
+
+IMPLEMENT_DYNCREATE(CServMgrView, CListView)
+
+BEGIN_MESSAGE_MAP(CServMgrView, CListView)
+END_MESSAGE_MAP()
+
+// CServMgrView 构造/析构
+
+CServMgrView::CServMgrView() noexcept
+{
+    // TODO: 在此处添加构造代码
+}
+
+CServMgrView::~CServMgrView()
+{
+}
+
+BOOL CServMgrView::PreCreateWindow(CREATESTRUCT& cs)
+{
+    // TODO: 在此处通过修改
+    //  CREATESTRUCT cs 来修改窗口类或样式
+
+    return CListView::PreCreateWindow(cs);
+}
+
+void CServMgrView::OnInitialUpdate()
+{
+    CListView::OnInitialUpdate();
+    ::SetWindowLongPtr(GetListCtrl().m_hWnd, GWL_STYLE,
+                       ::GetWindowLongPtr(GetListCtrl().m_hWnd, GWL_STYLE) | LVS_REPORT);
+
+    GetListCtrl().SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+    GetListCtrl().InsertColumn(0, L"服务名称", LVCFMT_LEFT, 150);
+    GetListCtrl().InsertColumn(1, L"服务状态", LVCFMT_LEFT, 90);
+    GetListCtrl().InsertColumn(2, L"启动类型", LVCFMT_LEFT, 90);
+    GetListCtrl().InsertColumn(3, L"文件路径", LVCFMT_LEFT, 230);
+    GetListCtrl().InsertColumn(4, L"服务描述", LVCFMT_LEFT, 150);
+
+    // TODO: 调用 GetListCtrl() 直接访问 ListView 的列表控件，
+    //  从而可以用项填充 ListView。
+}
+
+
+// CServMgrView 诊断
+
+#ifdef _DEBUG
+void CServMgrView::AssertValid() const
+{
+    CListView::AssertValid();
+}
+
+void CServMgrView::Dump(CDumpContext& dc) const
+{
+    CListView::Dump(dc);
+}
+
+CServMgrDoc* CServMgrView::GetDocument() const // 非调试版本是内联的
+{
+    ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(CServMgrDoc)));
+    return (CServMgrDoc*)m_pDocument;
+}
+#endif //_DEBUG
+
+
+// CServMgrView 消息处理程序
