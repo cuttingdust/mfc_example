@@ -52,7 +52,8 @@ END_MESSAGE_MAP()
 // CScreenCaptureDlg 对话框
 
 
-CScreenCaptureDlg::CScreenCaptureDlg(CWnd* pParent /*=nullptr*/) : CDialogEx(IDD_SCREENCAPTURE_DIALOG, pParent)
+CScreenCaptureDlg::CScreenCaptureDlg(CWnd* pParent /*=nullptr*/) :
+    CDialogEx(IDD_SCREENCAPTURE_DIALOG, pParent), m_bCapturing(FALSE), m_bMouseDown(FALSE)
 {
     m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -66,6 +67,10 @@ BEGIN_MESSAGE_MAP(CScreenCaptureDlg, CDialogEx)
 ON_WM_SYSCOMMAND()
 ON_WM_PAINT()
 ON_WM_QUERYDRAGICON()
+ON_WM_LBUTTONDOWN()
+ON_WM_MOUSEMOVE()
+ON_WM_LBUTTONUP()
+ON_WM_ERASEBKGND()
 END_MESSAGE_MAP()
 
 
@@ -100,7 +105,11 @@ BOOL CScreenCaptureDlg::OnInitDialog()
     SetIcon(m_hIcon, TRUE);  // 设置大图标
     SetIcon(m_hIcon, FALSE); // 设置小图标
 
-    // TODO: 在此添加额外的初始化代码
+    /// 设置为全屏无边框窗口
+    int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    /// 移除标题栏和边框
     long lStyle = ::GetWindowLongPtr(GetSafeHwnd(), GWL_STYLE);
     lStyle &= ~WS_CAPTION;
     lStyle &= ~WS_BORDER;
@@ -120,6 +129,13 @@ BOOL CScreenCaptureDlg::OnInitDialog()
     SetLayeredWindowAttributes(0,  /// 窗口的句柄
                                90, /// 需要透明的颜色
                                LWA_ALPHA);
+    GetLayeredWindowAttributes(&m_transparentColor, &m_originalAlpha, &m_transparentFlags);
+
+    /// 初始化矩形
+    m_rcSelection.SetRectEmpty();
+    m_ptStart = CPoint(0, 0);
+    m_ptEnd   = CPoint(0, 0);
+
 
     return TRUE; // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -162,14 +178,74 @@ void CScreenCaptureDlg::OnPaint()
     }
     else
     {
+        // ============ 双缓冲绘制开始 ============
         CPaintDC dc(this);
         CRect    rect;
         GetClientRect(&rect);
-        CBrush hBrush(RGB(0, 0, 255));
-        dc.FillRect(&rect, &hBrush);
-        hBrush.DeleteObject();
 
-        CDialogEx::OnPaint();
+        // 创建内存DC
+        CDC      memDC;
+        CBitmap  memBitmap;
+        CBitmap* pOldBitmap = NULL;
+
+        memDC.CreateCompatibleDC(&dc);
+        memBitmap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height());
+        pOldBitmap = memDC.SelectObject(&memBitmap);
+
+        // 先绘制到内存DC
+        CBrush brushBackground(RGB(0, 0, 255)); /// 蓝色半透明背景
+        memDC.FillRect(&rect, &brushBackground);
+
+        /// 如果正在截图，绘制选区
+        if (m_bMouseDown && !m_rcSelection.IsRectNull())
+        {
+            /// 绘制选区边框（白色）
+            CPen  penWhite(PS_SOLID, 2, RGB(255, 255, 255));
+            CPen* pOldPen = memDC.SelectObject(&penWhite);
+            memDC.SelectStockObject(NULL_BRUSH); /// 透明填充
+
+            /// 确保矩形方向正确
+            CRect rcNormalized = m_rcSelection;
+            rcNormalized.NormalizeRect();
+
+            memDC.Rectangle(&rcNormalized);
+            memDC.SelectObject(pOldPen);
+            penWhite.DeleteObject();
+
+            /// 绘制选区尺寸信息
+            CString strSize;
+            strSize.Format(L"%d × %d", rcNormalized.Width(), rcNormalized.Height());
+
+            CFont font;
+            font.CreatePointFont(90, L"Arial");
+            CFont* pOldFont = memDC.SelectObject(&font);
+
+            /// 在选区右下角显示尺寸
+            CSize  textSize = memDC.GetTextExtent(strSize);
+            CPoint textPos(rcNormalized.right - textSize.cx - 5, rcNormalized.bottom - textSize.cy - 5);
+
+            /// 绘制文字背景
+            CRect textRect(textPos.x, textPos.y, textPos.x + textSize.cx + 4, textPos.y + textSize.cy + 4);
+            memDC.FillSolidRect(&textRect, RGB(0, 0, 0));
+
+            /// 绘制文字
+            memDC.SetTextColor(RGB(255, 255, 255));
+            memDC.SetBkColor(RGB(0, 0, 0));
+            memDC.TextOut(textPos.x + 2, textPos.y + 2, strSize);
+
+            memDC.SelectObject(pOldFont);
+            font.DeleteObject();
+        }
+
+        // 将内存DC内容复制到屏幕DC
+        dc.BitBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, SRCCOPY);
+
+        // 清理
+        memDC.SelectObject(pOldBitmap);
+        memBitmap.DeleteObject();
+        memDC.DeleteDC();
+        brushBackground.DeleteObject();
+        // ============ 双缓冲绘制结束 ============
     }
 }
 
@@ -178,4 +254,153 @@ void CScreenCaptureDlg::OnPaint()
 HCURSOR CScreenCaptureDlg::OnQueryDragIcon()
 {
     return static_cast<HCURSOR>(m_hIcon);
+}
+
+BOOL CScreenCaptureDlg::OnEraseBkgnd(CDC* pDC)
+{
+    // 防止背景闪烁
+    return TRUE;
+}
+
+void CScreenCaptureDlg::OnLButtonDown(UINT nFlags, CPoint point)
+{
+    // TODO: 在此添加消息处理程序代码和/或调用默认值
+
+    CDialogEx::OnLButtonDown(nFlags, point);
+
+    /// 开始截图
+    m_bMouseDown = TRUE;
+    m_bCapturing = TRUE;
+
+    /// 记录起点
+    m_ptStart = point;
+    m_ptEnd   = point;
+    m_rcSelection.SetRect(point.x, point.y, point.x, point.y);
+
+    /// 捕获鼠标，确保在窗口外也能接收消息
+    SetCapture();
+
+    /// 更新显示
+    Invalidate(FALSE);
+}
+
+void CScreenCaptureDlg::OnMouseMove(UINT nFlags, CPoint point)
+{
+    if (m_bMouseDown)
+    {
+        // 更新终点
+        m_ptEnd = point;
+
+        // 更新选区矩形
+        m_rcSelection.SetRect(m_ptStart.x, m_ptStart.y, m_ptEnd.x, m_ptEnd.y);
+
+        // 强制重绘
+        Invalidate(FALSE);
+        UpdateWindow();
+    }
+
+    CDialogEx::OnMouseMove(nFlags, point);
+}
+
+void CScreenCaptureDlg::OnLButtonUp(UINT nFlags, CPoint point)
+{
+    // TODO: 在此添加消息处理程序代码和/或调用默认值
+
+    CDialogEx::OnLButtonUp(nFlags, point);
+
+    if (m_bMouseDown)
+    {
+        // 释放鼠标捕获
+        ReleaseCapture();
+
+        // 确保选区矩形正确
+        m_ptEnd = point;
+        m_rcSelection.SetRect(m_ptStart.x, m_ptStart.y, m_ptEnd.x, m_ptEnd.y);
+        m_rcSelection.NormalizeRect();
+
+        // 检查选区大小，如果太小则视为取消
+        if (m_rcSelection.Width() < 10 || m_rcSelection.Height() < 10)
+        {
+            // 选区太小，取消截图
+            OnCancel();
+        }
+        else
+        {
+            // 执行截图
+            CaptureSelection();
+        }
+
+        // 完成截图
+        m_bCapturing = FALSE;
+        m_bMouseDown = FALSE;
+    }
+}
+
+void CScreenCaptureDlg::OnCancel()
+{
+    // 取消截图，直接退出程序
+    CDialogEx::OnCancel();
+}
+
+void CScreenCaptureDlg::CaptureSelection()
+{
+    // 临时设置为完全不透明
+    SetLayeredWindowAttributes(0, 255, LWA_ALPHA);
+    ShowWindow(SW_HIDE);
+    Sleep(50);
+
+
+    // 将客户端坐标转换为屏幕坐标
+    CRect rcScreen = m_rcSelection;
+    ClientToScreen(&rcScreen);
+    rcScreen.NormalizeRect();
+
+    // 获取屏幕DC
+    HDC hScreenDC = ::GetDC(NULL);
+    HDC hMemDC    = CreateCompatibleDC(hScreenDC);
+
+    // 创建兼容位图
+    HBITMAP hBitmap = CreateCompatibleBitmap(hScreenDC, rcScreen.Width(), rcScreen.Height());
+
+    // 将位图选入内存DC
+    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
+
+    // 复制屏幕区域到位图
+    BitBlt(hMemDC, 0, 0, rcScreen.Width(), rcScreen.Height(), hScreenDC, rcScreen.left, rcScreen.top, SRCCOPY);
+
+    // 恢复旧位图
+    SelectObject(hMemDC, hOldBitmap);
+
+    // 保存到剪贴板
+    if (OpenClipboard())
+    {
+        EmptyClipboard();
+        SetClipboardData(CF_BITMAP, hBitmap);
+        CloseClipboard();
+    }
+    else
+    {
+        // 剪贴板打开失败，删除位图
+        DeleteObject(hBitmap);
+    }
+
+    // 清理资源
+    DeleteDC(hMemDC);
+    ::ReleaseDC(NULL, hScreenDC);
+
+    ShowWindow(SW_SHOW);
+    // 恢复原始透明度
+    SetLayeredWindowAttributes(0, m_originalAlpha, LWA_ALPHA);
+
+    // 显示成功提示
+    CString strMessage;
+    strMessage.Format(L"截图成功！\n尺寸: %d × %d 像素\n已复制到剪贴板", rcScreen.Width(), rcScreen.Height());
+    MessageBox(strMessage, L"截图完成", MB_OK | MB_ICONINFORMATION);
+
+    m_rcSelection.SetRectEmpty(); // 清除选区矩形
+    Invalidate(FALSE);            // 强制重绘，清除线框
+    UpdateWindow();
+
+    // 截图完成，退出程序
+    // PostMessage(WM_CLOSE);
 }
