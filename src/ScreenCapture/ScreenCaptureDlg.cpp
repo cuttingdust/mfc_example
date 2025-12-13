@@ -161,11 +161,9 @@ void CScreenCaptureDlg::OnPaint()
 {
     if (IsIconic())
     {
-        CPaintDC dc(this); // 用于绘制的设备上下文
-
+        CPaintDC dc(this);
         SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()), 0);
 
-        // 使图标在工作区矩形中居中
         int   cxIcon = GetSystemMetrics(SM_CXICON);
         int   cyIcon = GetSystemMetrics(SM_CYICON);
         CRect rect;
@@ -173,7 +171,6 @@ void CScreenCaptureDlg::OnPaint()
         int x = (rect.Width() - cxIcon + 1) / 2;
         int y = (rect.Height() - cyIcon + 1) / 2;
 
-        // 绘制图标
         dc.DrawIcon(x, y, m_hIcon);
     }
     else
@@ -192,21 +189,29 @@ void CScreenCaptureDlg::OnPaint()
         memBitmap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height());
         pOldBitmap = memDC.SelectObject(&memBitmap);
 
-        // 先绘制到内存DC
-        CBrush brushBackground(RGB(0, 0, 255)); /// 蓝色半透明背景
+        // 先绘制到内存DC - 黑色半透明背景
+        CBrush brushBackground(RGB(0, 0, 0));
         memDC.FillRect(&rect, &brushBackground);
 
         /// 如果正在截图，绘制选区
         if (m_bMouseDown && !m_rcSelection.IsRectNull())
         {
+            CRect rcNormalized = m_rcSelection;
+            rcNormalized.NormalizeRect();
+
+            // ✅ 关键修改：在选中区域显示原始屏幕内容
+            HDC hScreenDC = ::GetDC(NULL);
+
+            // 将选中区域的屏幕内容复制到内存DC
+            BitBlt(memDC, rcNormalized.left, rcNormalized.top, rcNormalized.Width(), rcNormalized.Height(), hScreenDC,
+                   rcNormalized.left, rcNormalized.top, SRCCOPY);
+
+            ::ReleaseDC(NULL, hScreenDC);
+
             /// 绘制选区边框（白色）
             CPen  penWhite(PS_SOLID, 2, RGB(255, 255, 255));
             CPen* pOldPen = memDC.SelectObject(&penWhite);
             memDC.SelectStockObject(NULL_BRUSH); /// 透明填充
-
-            /// 确保矩形方向正确
-            CRect rcNormalized = m_rcSelection;
-            rcNormalized.NormalizeRect();
 
             memDC.Rectangle(&rcNormalized);
             memDC.SelectObject(pOldPen);
@@ -344,32 +349,19 @@ void CScreenCaptureDlg::OnCancel()
 
 void CScreenCaptureDlg::CaptureSelection()
 {
-    // 临时设置为完全不透明
-    SetLayeredWindowAttributes(0, 255, LWA_ALPHA);
-    ShowWindow(SW_HIDE);
-    Sleep(50);
-
-
     // 将客户端坐标转换为屏幕坐标
     CRect rcScreen = m_rcSelection;
     ClientToScreen(&rcScreen);
     rcScreen.NormalizeRect();
 
     // 获取屏幕DC
-    HDC hScreenDC = ::GetDC(NULL);
-    HDC hMemDC    = CreateCompatibleDC(hScreenDC);
-
-    // 创建兼容位图
-    HBITMAP hBitmap = CreateCompatibleBitmap(hScreenDC, rcScreen.Width(), rcScreen.Height());
-
-    // 将位图选入内存DC
+    HDC     hScreenDC  = ::GetDC(NULL);
+    HDC     hMemDC     = CreateCompatibleDC(hScreenDC);
+    HBITMAP hBitmap    = CreateCompatibleBitmap(hScreenDC, rcScreen.Width(), rcScreen.Height());
     HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
 
     // 复制屏幕区域到位图
     BitBlt(hMemDC, 0, 0, rcScreen.Width(), rcScreen.Height(), hScreenDC, rcScreen.left, rcScreen.top, SRCCOPY);
-
-    // 恢复旧位图
-    SelectObject(hMemDC, hOldBitmap);
 
     // 保存到剪贴板
     if (OpenClipboard())
@@ -380,27 +372,21 @@ void CScreenCaptureDlg::CaptureSelection()
     }
     else
     {
-        // 剪贴板打开失败，删除位图
         DeleteObject(hBitmap);
     }
 
     // 清理资源
+    SelectObject(hMemDC, hOldBitmap);
+    DeleteObject(hBitmap);
     DeleteDC(hMemDC);
     ::ReleaseDC(NULL, hScreenDC);
-
-    ShowWindow(SW_SHOW);
-    // 恢复原始透明度
-    SetLayeredWindowAttributes(0, m_originalAlpha, LWA_ALPHA);
 
     // 显示成功提示
     CString strMessage;
     strMessage.Format(L"截图成功！\n尺寸: %d × %d 像素\n已复制到剪贴板", rcScreen.Width(), rcScreen.Height());
     MessageBox(strMessage, L"截图完成", MB_OK | MB_ICONINFORMATION);
 
-    m_rcSelection.SetRectEmpty(); // 清除选区矩形
-    Invalidate(FALSE);            // 强制重绘，清除线框
+    m_rcSelection.SetRectEmpty();
+    Invalidate(FALSE);
     UpdateWindow();
-
-    // 截图完成，退出程序
-    // PostMessage(WM_CLOSE);
 }
