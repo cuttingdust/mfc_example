@@ -101,6 +101,25 @@ BOOL CScreenCaptureDlg::OnInitDialog()
     SetIcon(m_hIcon, FALSE); // 设置小图标
 
     // TODO: 在此添加额外的初始化代码
+    long lStyle = ::GetWindowLongPtr(GetSafeHwnd(), GWL_STYLE);
+    lStyle &= ~WS_CAPTION;
+    lStyle &= ~WS_BORDER;
+    lStyle &= ~WS_SYSMENU;
+    lStyle &= ~WS_THICKFRAME;
+    ::SetWindowLongPtr(GetSafeHwnd(), GWL_STYLE, lStyle);
+
+    int iWidth  = ::GetSystemMetrics(SM_CXSCREEN);
+    int iHeight = ::GetSystemMetrics(SM_CYSCREEN);
+
+    ::SetWindowPos(GetSafeHwnd(), wndTopMost, 0, 0, iWidth, iHeight,
+                   SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW | SWP_NOOWNERZORDER);
+
+
+    /// 第二步： 透明效果
+    ModifyStyleEx(0, WS_EX_LAYERED);
+    SetLayeredWindowAttributes(0,  /// 窗口的句柄
+                               90, /// 需要透明的颜色
+                               LWA_ALPHA);
 
     return TRUE; // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -143,6 +162,13 @@ void CScreenCaptureDlg::OnPaint()
     }
     else
     {
+        CPaintDC dc(this);
+        CRect    rect;
+        GetClientRect(&rect);
+        CBrush hBrush(RGB(0, 0, 255));
+        dc.FillRect(&rect, &hBrush);
+        hBrush.DeleteObject();
+
         CDialogEx::OnPaint();
     }
 }
