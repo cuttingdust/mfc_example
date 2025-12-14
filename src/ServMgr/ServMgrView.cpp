@@ -56,8 +56,8 @@ void CServMgrView::OnInitialUpdate()
     GetListCtrl().InsertColumn(0, L"服务名称", LVCFMT_LEFT, 150);
     GetListCtrl().InsertColumn(1, L"服务状态", LVCFMT_LEFT, 90);
     GetListCtrl().InsertColumn(2, L"启动类型", LVCFMT_LEFT, 90);
-    GetListCtrl().InsertColumn(3, L"文件路径", LVCFMT_LEFT, 230);
-    GetListCtrl().InsertColumn(4, L"服务描述", LVCFMT_LEFT, 150);
+    GetListCtrl().InsertColumn(3, L"文件路径", LVCFMT_LEFT, 530);
+    GetListCtrl().InsertColumn(4, L"服务描述", LVCFMT_LEFT, 300);
 
     CServConfig m_ServCfg;
     CServItem*  m_pHeader = m_ServCfg.EnumServList();
@@ -69,6 +69,9 @@ void CServMgrView::OnInitialUpdate()
         GetListCtrl().InsertItem(idx, L"");
         GetListCtrl().SetItemText(idx, 0, m_pHeader->m_strServDispName);
         GetListCtrl().SetItemText(idx, 1, m_ServCfg.GetStateString(m_pHeader->m_dwServStatus));
+        GetListCtrl().SetItemText(idx, 2, m_ServCfg.GetStartTypeString(m_pHeader->m_dwStartType));
+        GetListCtrl().SetItemText(idx, 3, m_pHeader->m_strBinPath);
+        GetListCtrl().SetItemText(idx, 4, m_pHeader->m_strDescription);
         m_pHeader = m_pHeader->m_pNext;
     }
 

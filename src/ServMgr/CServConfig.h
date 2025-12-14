@@ -8,6 +8,9 @@ public:
     CString    m_strServName;
     CString    m_strServDispName;
     DWORD      m_dwServStatus;
+    DWORD      m_dwStartType;
+    CString    m_strBinPath;
+    CString    m_strDescription;
     CServItem *m_pNext;
     CServItem()
     {
@@ -21,4 +24,7 @@ class CServConfig
 public:
     CServItem *EnumServList();
     CString    GetStateString(DWORD dwCurrState);
+    CString    GetStartTypeString(DWORD dwCurrStartType);
+    BOOL       GetServPathAndStartType(LPCTSTR lpszServName, CServItem &tItem);
+    CString    GetServDescription(LPCTSTR lpszServName);
 };
