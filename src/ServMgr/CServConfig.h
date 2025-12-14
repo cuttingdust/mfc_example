@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <afxwin.h>
+#include <winsvc.h>
 
 class CServItem
 {
@@ -27,4 +28,6 @@ public:
     CString    GetStartTypeString(DWORD dwCurrStartType);
     BOOL       GetServPathAndStartType(LPCTSTR lpszServName, CServItem &tItem);
     CString    GetServDescription(LPCTSTR lpszServName);
+    DWORD      GetServCtrlAccepted(LPCTSTR lpszServName, DWORD *pDwCurrentStatus = NULL);
+    BOOL       CtrlServStatus(LPCTSTR lpszServName, DWORD dwNewStatus);
 };

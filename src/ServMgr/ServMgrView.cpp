@@ -13,7 +13,9 @@
 
 #include "ServMgrDoc.h"
 #include "ServMgrView.h"
+
 #include "CServConfig.h"
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -74,7 +76,7 @@ void CServMgrView::OnInitialUpdate()
         GetListCtrl().SetItemText(idx, 4, m_pHeader->m_strDescription);
         m_pHeader = m_pHeader->m_pNext;
     }
-
+    m_ServCfg.CtrlServStatus(L"MySQL80", SERVICE_RUNNING);
     // TODO: 调用 GetListCtrl() 直接访问 ListView 的列表控件，
     //  从而可以用项填充 ListView。
 }

@@ -107,13 +107,17 @@ CString CServConfig::GetStartTypeString(DWORD dwCurrStartType)
 
 BOOL CServConfig::GetServPathAndStartType(LPCTSTR lpszServName, CServItem &tItem)
 {
+    BOOL      bRet = FALSE;
     SC_HANDLE hScm = ::OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if (!hScm)
-        return FALSE;
+        return bRet;
 
     SC_HANDLE hSvc = ::OpenService(hScm, lpszServName, SERVICE_QUERY_CONFIG);
     if (!hSvc)
-        return FALSE;
+    {
+        ::CloseServiceHandle(hScm);
+        return bRet;
+    }
 
     QUERY_SERVICE_CONFIG *pServCfg      = NULL;
     DWORD                 cbBytesNeeded = 0, cbBufferSize = 0;
@@ -139,14 +143,12 @@ BOOL CServConfig::GetServPathAndStartType(LPCTSTR lpszServName, CServItem &tItem
 
     tItem.m_strBinPath  = pServCfg->lpBinaryPathName;
     tItem.m_dwStartType = pServCfg->dwStartType;
-    ::CloseServiceHandle(hSvc);
-    ::CloseServiceHandle(hScm);
-    return TRUE;
+    bRet                = TRUE;
 
 __Error_End:
     ::CloseServiceHandle(hSvc);
     ::CloseServiceHandle(hScm);
-    return FALSE;
+    return bRet;
 }
 
 CString CServConfig::GetServDescription(LPCTSTR lpszServName)
@@ -182,4 +184,90 @@ CString CServConfig::GetServDescription(LPCTSTR lpszServName)
     ::CloseServiceHandle(hScm);
 
     return strResult;
+}
+
+DWORD CServConfig::GetServCtrlAccepted(LPCTSTR lpszServName, DWORD *pDwCurrentStatus)
+{
+    DWORD     dwCtrlAccepted = 0;
+    SC_HANDLE hScm           = ::OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (!hScm)
+        return dwCtrlAccepted;
+
+    SC_HANDLE hSvc = ::OpenService(hScm, lpszServName, SERVICE_QUERY_CONFIG);
+    if (!hSvc)
+    {
+        ::CloseServiceHandle(hScm);
+        return dwCtrlAccepted;
+    }
+
+    SERVICE_STATUS sTs = { 0 };
+    if (!::QueryServiceStatus(hSvc, &sTs))
+    {
+        goto __ERROR_END;
+    }
+
+    dwCtrlAccepted = sTs.dwControlsAccepted;
+    if (pDwCurrentStatus)
+    {
+        *pDwCurrentStatus = sTs.dwCurrentState;
+    }
+
+__ERROR_END:
+    ::CloseServiceHandle(hSvc);
+    ::CloseServiceHandle(hScm);
+    return dwCtrlAccepted;
+}
+
+BOOL CServConfig::CtrlServStatus(LPCTSTR lpszServName, DWORD dwNewStatus)
+{
+    BOOL      bRet = FALSE;
+    SC_HANDLE hScm = ::OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (!hScm)
+        return bRet;
+
+    SC_HANDLE hSvc = ::OpenService(hScm, lpszServName, SC_MANAGER_ALL_ACCESS);
+    if (!hSvc)
+    {
+        ::CloseServiceHandle(hScm);
+        return bRet;
+    }
+    SERVICE_STATUS sTs = { 0 };
+    if (!::QueryServiceStatus(hSvc, &sTs))
+    {
+        goto __ERROR_END;
+    }
+
+    /// 由于服务是系统比较高级的操作 并不是所有状态都可以切换
+    if (sTs.dwCurrentState == dwNewStatus)
+    {
+        bRet = TRUE;
+    }
+    else if (sTs.dwCurrentState == SERVICE_START_PENDING || sTs.dwCurrentState == SERVICE_STOP_PENDING ||
+             sTs.dwCurrentState == SERVICE_CONTINUE_PENDING || sTs.dwCurrentState == SERVICE_PAUSE_PENDING)
+    {
+        return FALSE;
+    }
+    else if (sTs.dwCurrentState == SERVICE_STOPPED && dwNewStatus == SERVICE_RUNNING)
+    {
+        bRet = ::StartService(hSvc, NULL, NULL);
+    }
+    else if ((sTs.dwCurrentState == SERVICE_RUNNING || sTs.dwCurrentState == SERVICE_PAUSED) &&
+             dwNewStatus == SERVICE_STOPPED)
+    {
+        bRet = ::ControlService(hSvc, SERVICE_CONTROL_STOP, &sTs);
+    }
+    else if ((sTs.dwCurrentState == SERVICE_PAUSED) && dwNewStatus == SERVICE_RUNNING)
+    {
+        bRet = ::ControlService(hSvc, SERVICE_CONTROL_CONTINUE, &sTs);
+    }
+    else if ((sTs.dwCurrentState == SERVICE_RUNNING) && dwNewStatus == SERVICE_PAUSED)
+    {
+        bRet = ::ControlService(hSvc, SERVICE_CONTROL_PAUSE, &sTs);
+    }
+
+
+__ERROR_END:
+    ::CloseServiceHandle(hSvc);
+    ::CloseServiceHandle(hScm);
+    return bRet;
 }
