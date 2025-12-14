@@ -2,6 +2,7 @@
 // ServMgrView.cpp: CServMgrView 类的实现
 //
 
+
 #include "pch.h"
 #include "framework.h"
 // SHARED_HANDLERS 可以在实现预览、缩略图和搜索筛选器句柄的
@@ -12,6 +13,7 @@
 
 #include "ServMgrDoc.h"
 #include "ServMgrView.h"
+#include "CServConfig.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -56,6 +58,19 @@ void CServMgrView::OnInitialUpdate()
     GetListCtrl().InsertColumn(2, L"启动类型", LVCFMT_LEFT, 90);
     GetListCtrl().InsertColumn(3, L"文件路径", LVCFMT_LEFT, 230);
     GetListCtrl().InsertColumn(4, L"服务描述", LVCFMT_LEFT, 150);
+
+    CServConfig m_ServCfg;
+    CServItem*  m_pHeader = m_ServCfg.EnumServList();
+    if (!m_pHeader)
+        return;
+
+    for (int idx = 0; m_pHeader != NULL; ++idx)
+    {
+        GetListCtrl().InsertItem(idx, L"");
+        GetListCtrl().SetItemText(idx, 0, m_pHeader->m_strServDispName);
+        GetListCtrl().SetItemText(idx, 1, m_ServCfg.GetStateString(m_pHeader->m_dwServStatus));
+        m_pHeader = m_pHeader->m_pNext;
+    }
 
     // TODO: 调用 GetListCtrl() 直接访问 ListView 的列表控件，
     //  从而可以用项填充 ListView。
