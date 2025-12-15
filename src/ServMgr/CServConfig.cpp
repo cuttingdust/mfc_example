@@ -188,12 +188,12 @@ CString CServConfig::GetServDescription(LPCTSTR lpszServName)
 
 DWORD CServConfig::GetServCtrlAccepted(LPCTSTR lpszServName, DWORD *pDwCurrentStatus)
 {
-    DWORD     dwCtrlAccepted = 0;
+    DWORD     dwCtrlAccepted = -1;
     SC_HANDLE hScm           = ::OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if (!hScm)
         return dwCtrlAccepted;
 
-    SC_HANDLE hSvc = ::OpenService(hScm, lpszServName, SERVICE_QUERY_CONFIG);
+    SC_HANDLE hSvc = ::OpenService(hScm, lpszServName, SC_MANAGER_ALL_ACCESS);
     if (!hSvc)
     {
         ::CloseServiceHandle(hScm);
