@@ -70,6 +70,8 @@ add_subdirectory(FileMgr)
 add_subdirectory(ScreenCapture)
 add_subdirectory(ServMgr)
 add_subdirectory(IPAddress)
+add_subdirectory(CClientDemo)
+add_subdirectory(CServerDemo)
 
 # 拷贝assert目录到输出目录
 set(ASSERT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/assert)
