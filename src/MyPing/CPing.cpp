@@ -1,5 +1,7 @@
 ﻿#include "CPing.h"
 
+#include <WS2tcpip.h>
+
 USHORT CPing::s_usPacketSeq = 0;
 
 
@@ -41,11 +43,36 @@ BOOL CPing::Ping(DWORD dwDestIP, PingReply *pPingReply, DWORD dwTimeOut)
 
 BOOL CPing::Ping(const char *szDestIP, PingReply *pPingReply, DWORD dwTimeOut)
 {
-    if (NULL != szDestIP)
+    if (NULL == szDestIP)
+        return FALSE;
+
+    DWORD dwDestIP = INADDR_NONE;
+
+    // 检查是否是纯数字IP
+    dwDestIP = ::inet_addr(szDestIP);
+
+    if (dwDestIP == INADDR_NONE)
     {
-        return PingCore(inet_addr(szDestIP), pPingReply, dwTimeOut);
+        // 使用 getaddrinfo 进行DNS解析
+        struct addrinfo hints = { 0 }, *result = NULL;
+        hints.ai_family   = AF_INET; // 只关心IPv4
+        hints.ai_socktype = SOCK_RAW;
+
+        int ret = ::getaddrinfo(szDestIP, NULL, &hints, &result);
+        if (ret != 0 || result == NULL)
+        {
+            // 解析失败
+            return FALSE;
+        }
+
+        // 获取IP地址
+        struct sockaddr_in *sockaddr_ipv4 = (struct sockaddr_in *)result->ai_addr;
+        dwDestIP                          = sockaddr_ipv4->sin_addr.s_addr;
+
+        ::freeaddrinfo(result);
     }
-    return FALSE;
+
+    return PingCore(dwDestIP, pPingReply, dwTimeOut);
 }
 
 BOOL CPing::PingCore(DWORD dwDestIP, PingReply *pPingReply, DWORD dwTimeOut)
