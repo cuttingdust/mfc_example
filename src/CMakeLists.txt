@@ -75,6 +75,8 @@ add_subdirectory(CServerDemo)
 add_subdirectory(SyncInternetTime)
 add_subdirectory(MyPing)
 add_subdirectory(NetPacketTrace)
+add_subdirectory(ShutdownConsole)
+add_subdirectory(ShutdownControl)
 
 # 拷贝assert目录到输出目录
 set(ASSERT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/assert)
