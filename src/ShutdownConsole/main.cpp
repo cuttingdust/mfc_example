@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     sockaddr_in sockAddrIn;
     sockAddrIn.sin_family           = AF_INET;
     sockAddrIn.sin_port             = ::htons(8888);
-    sockAddrIn.sin_addr.S_un.S_addr = inet_addr("192.168.1.221");
+    sockAddrIn.sin_addr.S_un.S_addr = inet_addr("192.168.211.128");
     if (::connect(sock, (sockaddr *)&sockAddrIn, sizeof(sockAddrIn)) == SOCKET_ERROR)
     {
         printf("connect Ê§°Ü !");
@@ -33,9 +33,9 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    const char *sendData      = "Hello";
-    const char *shutdown_data = "SHCTDOWN2";
-    ::send(sock, sendData, strlen(sendData), 0);
+    // const char *sendData      = "Hello\n";
+    const char *shutdown_data = "SHUTDOWN";
+    // ::send(sock, sendData, strlen(sendData), 0);
     ::send(sock, shutdown_data, strlen(shutdown_data), 0);
 
     char recvData[255];
