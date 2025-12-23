@@ -10,6 +10,7 @@
 #define IDC_EDIT_ADDRESS                1000
 #define IDC_BTN_STEPTO                  1001
 #define ID_CODEVIEW                     1003
+#define IDC_BTN_GET_PICTURE             1005
 #define ID_32771                        32771
 #define ID_VIEWHTML                     32772
 
@@ -19,7 +20,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        313
 #define _APS_NEXT_COMMAND_VALUE         32773
-#define _APS_NEXT_CONTROL_VALUE         1004
+#define _APS_NEXT_CONTROL_VALUE         1006
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

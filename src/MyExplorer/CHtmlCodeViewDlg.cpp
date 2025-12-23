@@ -8,6 +8,8 @@
 
 #include "resource.h"
 
+#include <regex>
+
 /// 获取窗体句柄对应的CWnd指针
 WNDPROC lpEditProc;
 HWND    hEditWnd;
@@ -227,6 +229,7 @@ void CHtmlCodeViewDlg::DoDataExchange(CDataExchange* pDX)
 
 
 BEGIN_MESSAGE_MAP(CHtmlCodeViewDlg, CDialogEx)
+ON_BN_CLICKED(IDC_BTN_GET_PICTURE, &CHtmlCodeViewDlg::OnBnClickedBtnGetPicture)
 END_MESSAGE_MAP()
 
 
@@ -311,4 +314,26 @@ void CHtmlCodeViewDlg::showLineNumber(HWND hEdit)
     ::DeleteDC(hdcCpb);
     ::ReleaseDC(hEdit, hdcEdit);
     ::DeleteObject(hdcBmp);
+}
+
+void CHtmlCodeViewDlg::OnBnClickedBtnGetPicture()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    if (m_htmlCode.IsEmpty())
+    {
+        return;
+    }
+
+    CT2CA       tempStr(m_htmlCode);
+    std::string s(tempStr);
+
+    std::smatch m;
+    std::regex  e(R"(http://.*.jpg)");
+    while (std::regex_search(s, m, e))
+    {
+        for (auto x = m.begin(); x != m.end(); ++x)
+        {
+            AfxMessageBox(A2Wstring(x->str().c_str()));
+        }
+    }
 }

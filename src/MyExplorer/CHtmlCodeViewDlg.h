@@ -26,6 +26,8 @@ public:
 protected:
     virtual void DoDataExchange(CDataExchange* pDX); // DDX/DDV 支持
 
+    afx_msg void OnBnClickedBtnGetPicture();
+
     DECLARE_MESSAGE_MAP()
 public:
     CString m_htmlCode;
