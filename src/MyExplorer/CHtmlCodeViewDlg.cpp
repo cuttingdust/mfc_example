@@ -8,6 +8,9 @@
 
 #include "resource.h"
 
+/// 获取窗体句柄对应的CWnd指针
+WNDPROC lpEditProc;
+HWND    hEditWnd;
 
 // CHtmlCodeViewDlg 对话框
 
@@ -145,7 +148,17 @@ BOOL CHtmlCodeViewDlg::OnInitDialog()
     CInternetSession session(_T("MyExplorerHTMLViewer"), 1, PRE_CONFIG_INTERNET_ACCESS);
     CStdioFile*      pFile = NULL;
     CString          sWebAddress;
-    CStringA         strHtml; // 存储原始字节数据
+    CStringA         strHtml; /// 存储原始字节数据
+
+    /// 设置一下文本框的显示效果，添加代码的行号显示
+    CFont font;
+    font.CreatePointFont(100, _T("Consolas"));
+    m_editHtmlBody.SetFont(&font);
+
+    /// 设置一下edit的编辑区域去，在左边留出40像素显示行号的空间
+    m_editHtmlBody.SendMessage(EM_SETMARGINS, EC_RIGHTMARGIN | EC_LEFTMARGIN, 0x000050005 + 40);
+    hEditWnd   = m_editHtmlBody.GetSafeHwnd();
+    lpEditProc = (WNDPROC)SetWindowLongPtr(hEditWnd, GWLP_WNDPROC, (LONG_PTR)&CHtmlCodeViewDlg::SubEditProc);
 
     ((CMainFrame*)GetParentFrame())->m_wndDlgBar.GetDlgItem(IDC_EDIT_ADDRESS)->GetWindowText(sWebAddress);
 
@@ -209,6 +222,7 @@ void CHtmlCodeViewDlg::DoDataExchange(CDataExchange* pDX)
 {
     CDialogEx::DoDataExchange(pDX);
     DDX_Text(pDX, ID_CODEVIEW, m_htmlCode);
+    DDX_Control(pDX, ID_CODEVIEW, m_editHtmlBody);
 }
 
 
@@ -217,3 +231,84 @@ END_MESSAGE_MAP()
 
 
 // CHtmlCodeViewDlg 消息处理程序
+
+/// 截获edit控件的wm_paint消息，绘制行号
+
+long CHtmlCodeViewDlg::SubEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParams)
+{
+    PAINTSTRUCT ps;
+    if (uMsg == WM_PAINT)
+    {
+        ::CallWindowProc(lpEditProc, hWnd, uMsg, wParam, lParams);
+        ::BeginPaint(hWnd, &ps);
+        {
+            showLineNumber(hEditWnd);
+        }
+
+        return ::EndPaint(hWnd, &ps);
+    }
+
+
+    return CallWindowProc(lpEditProc, hWnd, uMsg, wParam, lParams);
+}
+
+/// 显示文本的总行数
+void CHtmlCodeViewDlg::showLineNumber(HWND hEdit)
+{
+    RECT       ClientRect; /// 与edit控件客户区相关
+    HDC        hdcEdit;    /// edit的设备环境
+    HDC        hdcCpb;     ///与edit控件兼容的内存设备环境
+    HBITMAP    hdcBmp;     /// 与edit控件兼容的位图
+    int        CharHeight; /// 字符高度
+    int        chHeight;   /// 行高
+    int        FirstLine;
+    int        ClientHeight;
+    int        LineCount;
+    wchar_t    countBuf[10]; /// 用于存储行号的缓冲区
+    CHARFORMAT charFmt;
+
+    /// 获取edit的dc
+    hdcEdit = ::GetDC(hEdit);
+    ::GetClientRect(hEdit, &ClientRect);
+    /// 获取客户区的高度
+    ClientHeight = ClientRect.bottom - ClientRect.top;
+    /// 创建与edit控件兼容的内存dc
+    hdcCpb = ::CreateCompatibleDC(hdcEdit);
+    /// 创建一个位图dc, 用于显示行号
+    hdcBmp = ::CreateCompatibleBitmap(hdcEdit, 40, ClientHeight);
+    /// 将位图dc选入edit环境
+    ::SelectObject(hdcCpb, hdcBmp);
+
+    /// 填充显示行号dc的背景色
+    ::FillRect(hdcCpb, &ClientRect, ::CreateSolidBrush(0x8080ff));
+    ::SetBkMode(hdcCpb, TRANSPARENT);
+    /// 获取当前edit中的文本的总行数
+    LineCount = ::SendMessage(hEdit, EM_GETLINECOUNT, 0, 0);
+
+    /// 处理字符
+    ::ZeroMemory(&charFmt, sizeof(charFmt));
+    charFmt.cbSize = sizeof(CHARFORMAT);
+    ::SendMessage(hEdit, EM_GETCHARFORMAT, TRUE, (long)&charFmt);
+    /// 获取字符高度
+    CharHeight = charFmt.yHeight / 15;
+    chHeight   = CharHeight; /// 行高
+    CharHeight = 2;
+    /// 设置显示行号的前景色
+    ::SetTextColor(hdcCpb, 0x000000);
+    /// 获取文本的第一可见行号
+    FirstLine = ::SendMessage(hEdit, EM_GETFIRSTVISIBLELINE, 0, 0);
+    FirstLine++;
+    while (FirstLine <= LineCount)
+    {
+        ::TextOut(hdcCpb, 1, CharHeight, countBuf, wsprintf(countBuf, L"%4u", FirstLine++));
+        CharHeight += chHeight + 20;
+        if (CharHeight > ClientHeight)
+            break;
+    }
+
+    /// 将内存dc的内容拷贝到edit控件的客户区
+    ::BitBlt(hdcEdit, 0, 0, 40, ClientHeight, hdcCpb, 0, 0, SRCCOPY);
+    ::DeleteDC(hdcCpb);
+    ::ReleaseDC(hEdit, hdcEdit);
+    ::DeleteObject(hdcBmp);
+}

@@ -29,4 +29,9 @@ protected:
     DECLARE_MESSAGE_MAP()
 public:
     CString m_htmlCode;
+    CEdit   m_editHtmlBody;
+
+    static long SubEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParams);
+
+    static void showLineNumber(HWND hEdit);
 };
