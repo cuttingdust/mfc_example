@@ -12,6 +12,7 @@
 
 #include "MyExplorerDoc.h"
 #include "MyExplorerView.h"
+#include "CHtmlCodeViewDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -25,6 +26,7 @@ IMPLEMENT_DYNCREATE(CMyExplorerView, CHtmlView)
 BEGIN_MESSAGE_MAP(CMyExplorerView, CHtmlView)
 // 标准打印命令
 ON_COMMAND(ID_FILE_PRINT, &CHtmlView::OnFilePrint)
+ON_COMMAND(ID_VIEWHTML, &CMyExplorerView::OnViewhtml)
 END_MESSAGE_MAP()
 
 // CMyExplorerView 构造/析构
@@ -80,3 +82,10 @@ CMyExplorerDoc* CMyExplorerView::GetDocument() const // 非调试版本是内联
 
 
 // CMyExplorerView 消息处理程序
+
+void CMyExplorerView::OnViewhtml()
+{
+    // TODO: 在此添加命令处理程序代码
+    CHtmlCodeViewDlg dlg;
+    dlg.DoModal();
+}
