@@ -37,6 +37,11 @@ if(MFC_FOUND)
 set(CMAKE_MFC_FLAG 2)
 endif()
 
+#Python3
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+message("Python3_FOUND = ${Python3_FOUND}")
+message("Python3_VERSION = ${Python3_VERSION}")
+message("Python3_LIBS = ${Python3_LIBRARIES}")
 #==================================================================================#
 
 # OpenCV
@@ -79,6 +84,7 @@ add_subdirectory(ShutdownConsole)
 add_subdirectory(ShutdownControl)
 add_subdirectory(MyExplorer)
 add_subdirectory(SmartQQAns)
+add_subdirectory(PythonTest)
 
 # 拷贝assert目录到输出目录
 set(ASSERT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/assert)
