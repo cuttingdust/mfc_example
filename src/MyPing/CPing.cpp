@@ -4,7 +4,7 @@
 
 USHORT CPing::s_usPacketSeq = 0;
 
-
+/// 根据ICMP协议，构造ICMP报文并发送，然后等待接收响应报文
 CPing::CPing() : m_szICMPData(NULL), m_bIsInitSucc(FALSE)
 {
     WSADATA wsaData;
