@@ -4,9 +4,8 @@ get_filename_component(CURRENT_DIR ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 project(${CURRENT_DIR})
 
 set(DPS_LIBRARYS
-    ${OpenCV_LIBS}
+    ${PYTHON_MOUDLES}
 )
-
 cpp_execute(${PROJECT_NAME})
 
 if(MSVC)
@@ -20,6 +19,6 @@ if(MSVC)
 	
 	# target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
     target_link_options(${PROJECT_NAME} PRIVATE  "/ENTRY:mainCRTStartup")
-
-
+    target_compile_options(${PROJECT_NAME} PRIVATE "/U_DEBUG")
+    #target_compile_definitions(${PROJECT_NAME} PRIVATE "NDEBUG")
 endif()
