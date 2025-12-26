@@ -1,9 +1,7 @@
-#include <Python.h>
+#include "PythonEx.h"
 
 int main(int argc, char *argv[])
 {
-    Py_SetPythonHome(LR"(C:\Program Files\Python314)");
-
     Py_Initialize();
     PyRun_SimpleString("import sys");
     PyRun_SimpleString("sys.path.append('./assert')");
@@ -47,5 +45,6 @@ int main(int argc, char *argv[])
 
     Py_Finalize();
 
+    getchar();
     return 0;
 }

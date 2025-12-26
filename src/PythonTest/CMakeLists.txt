@@ -20,6 +20,4 @@ if(MSVC)
 	
 	# target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
     target_link_options(${PROJECT_NAME} PRIVATE  "/ENTRY:mainCRTStartup")
-
-
 endif()
