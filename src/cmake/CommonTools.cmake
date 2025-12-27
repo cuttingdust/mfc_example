@@ -269,16 +269,31 @@ macro(set_cpp name)
 
     if(MSVC)
 		if(MFC_FOUND)
-		#set_target_properties(${name} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
-	
-		target_link_options(${name} PRIVATE /ENTRY:wWinMainCRTStartup)
+		   # 获取目标类型
+			get_target_property(target_type ${name} TYPE)
 		
-		target_compile_definitions(${name} PRIVATE 
-		-DWIN32
-		-D_DEBUG
-		-D_WINDOWS
-		-D_AFXDLL
-		)
+			# 打印调试信息
+			message(STATUS "Target ${name} type: ${target_type}")
+        
+			# 只有可执行程序才需要设置入口点
+			if(${target_type} STREQUAL "EXECUTABLE")
+				message(STATUS "Setting entry point for executable: ${name}")
+				target_link_options(${name} PRIVATE /ENTRY:wWinMainCRTStartup)
+            
+				# 如果是 GUI 应用程序，还可以设置子系统
+				# target_link_options(${name} PRIVATE /SUBSYSTEM:WINDOWS)
+			elseif(${target_type} STREQUAL "SHARED_LIBRARY")
+				message(STATUS "${name} is a shared library, skipping entry point setting")
+			elseif(${target_type} STREQUAL "STATIC_LIBRARY")
+				message(STATUS "${name} is a static library, skipping entry point setting")
+			endif()
+
+			target_compile_definitions(${name} PRIVATE 
+				-DWIN32
+				-D_DEBUG
+				-D_WINDOWS
+				-D_AFXDLL
+			)
 		endif()
 	
 		 target_compile_definitions(${name} PUBLIC
@@ -395,7 +410,7 @@ function(cpp_library name)
 
     # 支持find_package
     # 生成并安装配置文件
-    instaLl(EXPORT ${name} FILE ${name}Config.cmake
+    install(EXPORT ${name} FILE ${name}Config.cmake
         DESTINATION ${CONF_VER_DIR}
     )
 
