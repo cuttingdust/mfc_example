@@ -60,6 +60,7 @@ CMyPlayerDlg::CMyPlayerDlg(CWnd* pParent /*=nullptr*/) : CDialogEx(IDD_MYPLAYER_
 void CMyPlayerDlg::DoDataExchange(CDataExchange* pDX)
 {
     CDialogEx::DoDataExchange(pDX);
+    DDX_Control(pDX, IDC_OCX1, m_mp);
 }
 
 BEGIN_MESSAGE_MAP(CMyPlayerDlg, CDialogEx)
@@ -67,6 +68,7 @@ ON_WM_SYSCOMMAND()
 ON_WM_PAINT()
 ON_WM_QUERYDRAGICON()
 ON_WM_NCHITTEST()
+ON_BN_CLICKED(IDC_BTN_OPEN_AUDIO, &CMyPlayerDlg::OnBnClickedBtnOpenAudio)
 END_MESSAGE_MAP()
 
 
@@ -152,107 +154,61 @@ void CMyPlayerDlg::OnPaint()
     }
     else
     {
-        CRect rect;     /// 声明一个矩形对象，用于存储窗口客户区的大小和位置
-        GetClientRect(  /// 获取当前窗口的客户区矩形（不包括标题栏、边框等非客户区）
-                &rect); /// 结果存储在rect中，rect.left=0, rect.top=0, rect.right=宽度, rect.bottom=高度
-        CDC  memDC;     /// 创建内存设备上下文（Memory DC），用于在内存中绘制位图
-        CDC* pDC;       /// 声明一个指向设备上下文的指针，初始化为NULL
+        CRect rect; /// 声明一个矩形对象，用于存储窗口客户区的大小和位置
 
-        pDC = GetDC( /// 获取当前窗口的设备上下文（DC），用于实际的屏幕绘制
-        );           ///  窗口设备上下文代表窗口的绘图表面
+        if (!m_FirstDraw)
+        {
+            GetClientRect(  /// 获取当前窗口的客户区矩形（不包括标题栏、边框等非客户区）
+                    &rect); /// 结果存储在rect中，rect.left=0, rect.top=0, rect.right=宽度, rect.bottom=高度
+            CDC  memDC;     /// 创建内存设备上下文（Memory DC），用于在内存中绘制位图
+            CDC* pDC;       /// 声明一个指向设备上下文的指针，初始化为NULL
 
-        CBitmap  bitmap;     ///  创建位图对象，用于加载和存储位图数据
-        CBitmap* pOldBitmap; /// 声明指向旧位图的指针，用于保存memDC中原有的位图对象（以便后续恢复）
-        BITMAP   hBitmap;    /// 声明BITMAP结构体，用于存储位图的详细信息（宽度、高度、颜色深度等）
+            pDC = GetDC( /// 获取当前窗口的设备上下文（DC），用于实际的屏幕绘制
+            );           ///  窗口设备上下文代表窗口的绘图表面
 
-        bitmap.LoadBitmap(    /// 从资源中加载位图，IDB_BITMAP1是资源ID
-                IDB_BITMAP1); /// 位图资源通常在资源文件(.rc)中定义
+            CBitmap  bitmap;     ///  创建位图对象，用于加载和存储位图数据
+            CBitmap* pOldBitmap; /// 声明指向旧位图的指针，用于保存memDC中原有的位图对象（以便后续恢复）
+            BITMAP   hBitmap;    /// 声明BITMAP结构体，用于存储位图的详细信息（宽度、高度、颜色深度等）
 
-        memDC.CreateCompatibleDC( /// 创建一个与屏幕设备上下文(pDC)兼容的内存设备上下文
-                pDC);             /// 这意味着memDC具有与屏幕DC相同的颜色格式和分辨率
+            bitmap.LoadBitmap(    /// 从资源中加载位图，IDB_BITMAP1是资源ID
+                    IDB_BITMAP1); /// 位图资源通常在资源文件(.rc)中定义
 
-        /// 将位图对象选入内存设备上下文中，并保存原有的位图对象
-        /// 这是必要的，因为每个DC只能有一个位图被选中用于绘制
-        pOldBitmap = memDC.SelectObject(&bitmap);
+            memDC.CreateCompatibleDC( /// 创建一个与屏幕设备上下文(pDC)兼容的内存设备上下文
+                    pDC);             /// 这意味着memDC具有与屏幕DC相同的颜色格式和分辨率
 
-        /// 获取位图的详细信息，填充到hBitmap结构体中
-        /// 包括：宽度(bmWidth)、高度(bmHeight)、颜色深度(bmBitsPixel)等
-        bitmap.GetBitmap(&hBitmap);
+            /// 将位图对象选入内存设备上下文中，并保存原有的位图对象
+            /// 这是必要的，因为每个DC只能有一个位图被选中用于绘制
+            pOldBitmap = memDC.SelectObject(&bitmap);
 
-        /// 创建CSize对象，存储位图的原始尺寸（宽度和高度）
-        /// cx = hBitmap.bmWidth, cy = hBitmap.bmHeight
-        CSize size(hBitmap.bmWidth, hBitmap.bmHeight);
+            /// 获取位图的详细信息，填充到hBitmap结构体中
+            /// 包括：宽度(bmWidth)、高度(bmHeight)、颜色深度(bmBitsPixel)等
+            bitmap.GetBitmap(&hBitmap);
 
-        /// 将内存DC中的位图拉伸绘制到窗口DC中：
-        /// 参数说明：
-        /// 1. 目标区域：(0, 0) 开始，宽度=rect.Width()，高度=rect.Height()
-        /// 2. 源设备上下文：&memDC（包含位图的内存DC）
-        /// 3. 源区域：从(0, 0)开始，宽度=size.cx，高度=size.cy
-        /// 4. 光栅操作：SRCCOPY（直接将源复制到目标）
-        /// 效果：将位图拉伸/压缩以适应整个客户区
-        pDC->StretchBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, size.cx, size.cy, SRCCOPY);
+            /// 创建CSize对象，存储位图的原始尺寸（宽度和高度）
+            /// cx = hBitmap.bmWidth, cy = hBitmap.bmHeight
+            CSize size(hBitmap.bmWidth, hBitmap.bmHeight);
 
-        /// 将原有的位图对象选回内存设备上下文
-        /// 这是重要的清理步骤，避免资源泄漏和错误
-        memDC.SelectObject(pOldBitmap);
+            /// 将内存DC中的位图拉伸绘制到窗口DC中：
+            /// 参数说明：
+            /// 1. 目标区域：(0, 0) 开始，宽度=rect.Width()，高度=rect.Height()
+            /// 2. 源设备上下文：&memDC（包含位图的内存DC）
+            /// 3. 源区域：从(0, 0)开始，宽度=size.cx，高度=size.cy
+            /// 4. 光栅操作：SRCCOPY（直接将源复制到目标）
+            /// 效果：将位图拉伸/压缩以适应整个客户区
+            pDC->StretchBlt(0, 0, rect.Width(), rect.Height(), &memDC, 0, 0, size.cx, size.cy, SRCCOPY);
 
-        /// 释放获取的设备上下文
-        /// Windows要求每次GetDC()后必须调用ReleaseDC()，否则会导致资源泄漏
-        ReleaseDC(pDC);
+            /// 将原有的位图对象选回内存设备上下文
+            /// 这是重要的清理步骤，避免资源泄漏和错误
+            memDC.SelectObject(pOldBitmap);
 
-        // ============== 内存泄漏风险提示 ==============
-        // 注意：这里存在潜在的内存泄漏问题！
-        // bitmap对象和memDC对象没有被显式删除。
-        // 在MFC中，当这些对象超出作用域时，析构函数会自动调用，
-        // 但如果有异常发生，可能导致资源未正确释放。
+            /// 释放获取的设备上下文
+            /// Windows要求每次GetDC()后必须调用ReleaseDC()，否则会导致资源泄漏
+            ReleaseDC(pDC);
 
-        // ============== 建议的改进代码 ==============
-        /*
-// 使用RAII风格的改进版本
-CRect rect;
-GetClientRect(&rect);
+            // InvalidateRect(rect);
+            m_FirstDraw = TRUE;
+        }
 
-CClientDC dc(this);  // 自动管理DC生命周期，无需ReleaseDC
-
-CDC memDC;
-if (!memDC.CreateCompatibleDC(&dc))
-{
-    AfxMessageBox(L"创建内存DC失败");
-    return;
-}
-
-CBitmap bitmap;
-if (!bitmap.LoadBitmap(IDB_BITMAP1))
-{
-    AfxMessageBox(L"加载位图失败");
-    return;
-}
-
-CBitmap* pOldBitmap = memDC.SelectObject(&bitmap);
-
-BITMAP bmpInfo;
-bitmap.GetBitmap(&bmpInfo);
-
-// 高质量拉伸绘制选项
-dc.SetStretchBltMode(HALFTONE);  // 使用高质量拉伸模式
-dc.SetBrushOrg(0, 0);
-
-// 拉伸绘制位图
-dc.StretchBlt(0, 0, rect.Width(), rect.Height(),
-              &memDC, 0, 0, bmpInfo.bmWidth, bmpInfo.bmHeight,
-              SRCCOPY);
-
-// 恢复原有位图
-if (pOldBitmap)
-    memDC.SelectObject(pOldBitmap);
-    
-// 注意：memDC和bitmap对象会在作用域结束时自动析构
-// CClientDC也会自动释放DC，无需手动调用ReleaseDC
-*/
-
-        // ============== 代码功能总结 ==============
-        // 这段代码的功能：将IDB_BITMAP1位图拉伸/压缩绘制到窗口的整个客户区
-        // 应用场景：窗口背景图、全屏位图显示、位图平铺等
 
         CDialogEx::OnPaint();
     }
@@ -275,4 +231,15 @@ LRESULT CMyPlayerDlg::OnNcHitTest(CPoint point)
         return HTCAPTION;
 
     return hit;
+}
+
+
+void CMyPlayerDlg::OnBnClickedBtnOpenAudio()
+{
+    CString     str;
+    CFileDialog m_dlg(TRUE, L"mp3", nullptr, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+                      L"音频文件 (*.mp3;*.wav;*.wma)|*.mp3;*.wav;*.wma|所有文件 (*.*)|*.*||");
+    m_dlg.DoModal();
+    str = m_dlg.GetPathName();
+    m_mp.put_URL(str);
 }

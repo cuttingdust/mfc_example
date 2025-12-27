@@ -3,6 +3,8 @@
 //
 
 #pragma once
+#include "CWMPPlayer4.h"
+#include "COCX1.h"
 
 
 // CMyPlayerDlg 对话框
@@ -36,5 +38,8 @@ protected:
     DECLARE_MESSAGE_MAP()
 public:
     CRgn            m_rgn;
+    COCX1           m_mp;
+    BOOL            m_FirstDraw = FALSE;
     afx_msg LRESULT OnNcHitTest(CPoint point);
+    afx_msg void    OnBnClickedBtnOpenAudio();
 };
